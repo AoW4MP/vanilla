@@ -1,0 +1,343 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >
+  Draft Lobby WebSocket relay (API Gateway WebSocket + Lambda + DynamoDB).
+  Tiny fan-out service: each browser connects with ?lobby=<id>, and any
+  message it sends is relayed to every other browser in the same lobby.
+  Designed to fit comfortably in the AWS free tier for hobby use.
+
+Parameters:
+  StageName:
+    Type: String
+    Default: prod
+    Description: WebSocket API stage name (becomes the URL path segment)
+
+  ConnectionTtlHours:
+    Type: Number
+    Default: 4
+    MinValue: 1
+    MaxValue: 24
+    Description: How long a stale connection row lingers in DynamoDB before TTL deletes it
+
+Resources:
+  # --------------------------------------------------------------
+  # DynamoDB — tracks (roomId, connectionId). The GSI lets the
+  # Lambda look up "what room is this connection in?" on $disconnect
+  # and on relay (so we don't have to scan).
+  # --------------------------------------------------------------
+  RoomTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: roomId
+          AttributeType: S
+        - AttributeName: connectionId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: roomId
+          KeyType: HASH
+        - AttributeName: connectionId
+          KeyType: RANGE
+      GlobalSecondaryIndexes:
+        - IndexName: ByConnection
+          KeySchema:
+            - AttributeName: connectionId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+
+  # --------------------------------------------------------------
+  # Lambda IAM role — DDB access on the one table + ability to call
+  # the API Gateway management API (postToConnection) for fan-out.
+  # --------------------------------------------------------------
+  LambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: relay-policy
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Effect: Allow
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:GetItem
+                  - dynamodb:Query
+                Resource:
+                  - !GetAtt RoomTable.Arn
+                  - !Sub "${RoomTable.Arn}/index/*"
+              - Effect: Allow
+                Action: execute-api:ManageConnections
+                Resource: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*/POST/@connections/*"
+
+  # --------------------------------------------------------------
+  # WebSocket API
+  # --------------------------------------------------------------
+  WebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "${AWS::StackName}-ws"
+      ProtocolType: WEBSOCKET
+      # We don't actually dispatch on body.action — Lambda treats every
+      # non-$connect/$disconnect frame as a relay. But API Gateway requires
+      # a route-selection expression to be set.
+      RouteSelectionExpression: "$request.body.action"
+
+  # --------------------------------------------------------------
+  # Pre-create the log group with a short retention so we don't pay
+  # for forgotten CloudWatch logs after the trial. Lambda would
+  # otherwise auto-create it with "Never expire".
+  # --------------------------------------------------------------
+  RelayLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub "/aws/lambda/${AWS::StackName}-relay"
+      RetentionInDays: 3
+
+  RelayFunction:
+    Type: AWS::Lambda::Function
+    DependsOn: RelayLogGroup
+    Properties:
+      FunctionName: !Sub "${AWS::StackName}-relay"
+      Runtime: nodejs20.x
+      Handler: index.handler
+      Role: !GetAtt LambdaRole.Arn
+      Timeout: 10
+      MemorySize: 256
+      Environment:
+        Variables:
+          TABLE_NAME: !Ref RoomTable
+          CONNECTION_TTL_HOURS: !Ref ConnectionTtlHours
+      Code:
+        ZipFile: |
+          // Draft Lobby WebSocket relay.
+          //
+          // Routes:
+          //   $connect    — read ?lobby=<id>, store (roomId, connectionId, ttl)
+          //   $disconnect — find row by connectionId (GSI), delete it
+          //   $default    — read sender's roomId, fan out body to other peers
+          //
+          // Wire format (frames the Lambda forwards verbatim with envelope):
+          //   client -> server: any JSON your draft logic wants
+          //   server -> client: { from: "<senderConnectionId>", data: <originalJson|string> }
+          //
+          // The very first frame the host emits should be { type: "hello" }
+          // so other peers learn the host's connectionId (mirrors the previous
+          // PeerJS / Trystero "welcome" handshake).
+
+          const {
+            DynamoDBClient,
+          } = require("@aws-sdk/client-dynamodb");
+          const {
+            DynamoDBDocumentClient,
+            PutCommand,
+            DeleteCommand,
+            QueryCommand,
+          } = require("@aws-sdk/lib-dynamodb");
+          const {
+            ApiGatewayManagementApiClient,
+            PostToConnectionCommand,
+          } = require("@aws-sdk/client-apigatewaymanagementapi");
+
+          const ddb = DynamoDBDocumentClient.from(new DynamoDBClient({}));
+          const TABLE = process.env.TABLE_NAME;
+          const TTL_HOURS = parseInt(process.env.CONNECTION_TTL_HOURS || "4", 10);
+
+          const tryParse = (s) => {
+            if (typeof s !== "string") return s;
+            try { return JSON.parse(s); } catch (e) { return s; }
+          };
+
+          const lookupRoom = async (connectionId) => {
+            const r = await ddb.send(new QueryCommand({
+              TableName: TABLE,
+              IndexName: "ByConnection",
+              KeyConditionExpression: "connectionId = :c",
+              ExpressionAttributeValues: { ":c": connectionId },
+              Limit: 1,
+            }));
+            return (r.Items || [])[0] || null;
+          };
+
+          const peersInRoom = async (roomId) => {
+            const r = await ddb.send(new QueryCommand({
+              TableName: TABLE,
+              KeyConditionExpression: "roomId = :r",
+              ExpressionAttributeValues: { ":r": roomId },
+            }));
+            return r.Items || [];
+          };
+
+          exports.handler = async (event) => {
+            const ctx = event.requestContext || {};
+            const route = ctx.routeKey;
+            const connId = ctx.connectionId;
+            const stage = ctx.stage;
+            const domain = ctx.domainName;
+
+            try {
+              if (route === "$connect") {
+                const roomId = (event.queryStringParameters || {}).lobby;
+                if (!roomId || !/^[a-z0-9_-]{3,64}$/i.test(roomId)) {
+                  return { statusCode: 400, body: "Missing or invalid ?lobby=<id>" };
+                }
+                const ttl = Math.floor(Date.now() / 1000) + TTL_HOURS * 3600;
+                await ddb.send(new PutCommand({
+                  TableName: TABLE,
+                  Item: { roomId, connectionId: connId, ttl, joinedAt: Date.now() },
+                }));
+                return { statusCode: 200, body: "Connected" };
+              }
+
+              if (route === "$disconnect") {
+                const meta = await lookupRoom(connId);
+                if (meta) {
+                  await ddb.send(new DeleteCommand({
+                    TableName: TABLE,
+                    Key: { roomId: meta.roomId, connectionId: connId },
+                  }));
+                }
+                return { statusCode: 200, body: "Disconnected" };
+              }
+
+              // ---- $default — relay ----
+              const meta = await lookupRoom(connId);
+              if (!meta) {
+                return { statusCode: 410, body: "Not in any room" };
+              }
+
+              const peers = await peersInRoom(meta.roomId);
+              const targets = peers.filter((p) => p.connectionId !== connId);
+              if (targets.length === 0) {
+                return { statusCode: 200, body: "No peers" };
+              }
+
+              const apigw = new ApiGatewayManagementApiClient({
+                endpoint: `https://${domain}/${stage}`,
+              });
+              const wrapped = JSON.stringify({
+                from: connId,
+                data: tryParse(event.body),
+              });
+
+              const stale = [];
+              await Promise.all(
+                targets.map(async (t) => {
+                  try {
+                    await apigw.send(new PostToConnectionCommand({
+                      ConnectionId: t.connectionId,
+                      Data: Buffer.from(wrapped),
+                    }));
+                  } catch (err) {
+                    if (err && (err.name === "GoneException" || err.$metadata?.httpStatusCode === 410)) {
+                      stale.push(t);
+                    } else {
+                      console.error("postToConnection failed", t.connectionId, err);
+                    }
+                  }
+                })
+              );
+
+              // Best-effort cleanup of dead connections we discovered while fanning out.
+              await Promise.all(
+                stale.map((t) =>
+                  ddb.send(new DeleteCommand({
+                    TableName: TABLE,
+                    Key: { roomId: t.roomId, connectionId: t.connectionId },
+                  })).catch((e) => console.error("cleanup failed", e))
+                )
+              );
+
+              return { statusCode: 200, body: "OK" };
+            } catch (err) {
+              console.error("handler error", route, connId, err);
+              return { statusCode: 500, body: "Error: " + (err && err.message) };
+            }
+          };
+
+  # --------------------------------------------------------------
+  # Wire the Lambda into all three WebSocket routes via a single
+  # AWS_PROXY integration.
+  # --------------------------------------------------------------
+  LambdaInvokePermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref RelayFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${WebSocketApi}/*"
+
+  Integration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${RelayFunction.Arn}/invocations"
+
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $connect
+      AuthorizationType: NONE
+      Target: !Sub "integrations/${Integration}"
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $disconnect
+      Target: !Sub "integrations/${Integration}"
+
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WebSocketApi
+      RouteKey: $default
+      Target: !Sub "integrations/${Integration}"
+
+  Deployment:
+    Type: AWS::ApiGatewayV2::Deployment
+    DependsOn:
+      - ConnectRoute
+      - DisconnectRoute
+      - DefaultRoute
+    Properties:
+      ApiId: !Ref WebSocketApi
+
+  Stage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref WebSocketApi
+      StageName: !Ref StageName
+      DeploymentId: !Ref Deployment
+      DefaultRouteSettings:
+        DataTraceEnabled: false
+        DetailedMetricsEnabled: false
+
+Outputs:
+  WebSocketUrl:
+    Description: >
+      Connect from the browser as `new WebSocket(WebSocketUrl + "?lobby=" + lobbyId)`.
+    Value: !Sub "wss://${WebSocketApi}.execute-api.${AWS::Region}.amazonaws.com/${StageName}"
+
+  TableName:
+    Description: DynamoDB table used to track (roomId, connectionId) pairs.
+    Value: !Ref RoomTable
+
+  FunctionName:
+    Description: Lambda function handling $connect / $disconnect / $default.
+    Value: !Ref RelayFunction

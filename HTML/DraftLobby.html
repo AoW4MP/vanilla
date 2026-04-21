@@ -20,26 +20,6 @@
 
         <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
         <script src="/vanilla/Data/Init.js"></script>
-        <script type="module">
-            // Trystero — peer-to-peer WebRTC lib with pluggable signaling
-            // strategies (BitTorrent trackers, Nostr relays, MQTT brokers,
-            // Firebase, Supabase, ...). Strategies are dynamically imported
-            // from a CDN so the rest of the page can stay classic script.
-            // The default BitTorrent strategy uses many public trackers and
-            // is the most reliable option from restrictive networks (RU/BY).
-            const __TRYSTERO_MODS = {};
-            // Pin a major version so upstream breaking changes don't
-            // silently take down existing lobbies. Bump when you test.
-            const __TRYSTERO_VER = "0.21";
-            window.loadTrystero = async (strategy) => {
-                if (!__TRYSTERO_MODS[strategy]) {
-                    __TRYSTERO_MODS[strategy] = await import(
-                        `https://esm.sh/trystero@${__TRYSTERO_VER}/${strategy}`
-                    );
-                }
-                return __TRYSTERO_MODS[strategy];
-            };
-        </script>
 
         <title>Age of Wonders 4 Database - Draft Lobby</title>
 
@@ -428,25 +408,34 @@
             // ============================================================
             // Draft Lobby
             //
-            // Host/player flow (P2P via Trystero — no backend required):
+            // Host/player flow (server-mediated WebSocket relay):
             //   1. Host clicks Create Lobby -> generates a random 6-char
-            //      lobby id, joins a Trystero room by that id, displays a
-            //      shareable link (?lobby=<id>).
-            //   2. Players open the link -> their browser joins the same
-            //      Trystero room. The host sees them via onPeerJoin and
-            //      sends them a `welcome` action with their playerIndex.
-            //      Host is always player 0 in the lobby; joiners become
-            //      player 1, 2, ... up to preset.players.
+            //      lobby id, opens a WebSocket to the relay with
+            //      ?lobby=<id>, displays a shareable link (?lobby=<id>).
+            //   2. Players open the link -> their browser opens a WebSocket
+            //      to the same relay with the same ?lobby=<id>. The relay
+            //      fans out every message to other sockets in the same
+            //      lobby. Joiner sends `hello`; host replies with
+            //      `welcome` carrying a playerIndex. Host is player 0;
+            //      joiners are 1, 2, ... up to preset.players.
             //   3. Host chooses a JSON preset (picks/bans sequence).
             //      When everyone is ready, host starts the draft.
-            //   4. Picks/bans are submitted to the host (Trystero action),
+            //   4. Picks/bans are submitted to the host (`action` message);
             //      host validates, applies to authoritative state, and
-            //      broadcasts state to all players.
+            //      broadcasts the updated state (`state` message).
             //
-            // Why Trystero instead of PeerJS: no central broker to be
-            // geo-blocked. Default strategy uses public BitTorrent trackers
-            // (many, distributed, resilient); user can switch to Nostr or
-            // MQTT if trackers are also blocked.
+            // Why a relay instead of WebRTC: no NAT/firewall surprises and
+            // no third-party signaling broker that can be geo-blocked. The
+            // relay is a tiny CloudFormation stack (see /aws/draft-relay.yaml)
+            // running on AWS API Gateway WebSocket + Lambda + DynamoDB,
+            // comfortably inside the AWS free tier for hobby use.
+            //
+            // Wire format (after the relay's envelope is unwrapped):
+            //   { type, from: <senderClientId>, target?: <recipientClientId>, ...payload }
+            // The relay wraps each frame as { from: <connId>, data: <above> };
+            // we read `data` and ignore `from` (it's only the transport-level
+            // identity). The application-level identity is `clientId`,
+            // a random UUID each browser generates on page load.
             //
             // Preset JSON schema:
             //   {
@@ -538,23 +527,23 @@
             // Local client state
             //    isHost:        true if this tab created the lobby
             //    myPlayerIndex: which slot this tab controls (0 = host)
-            //    room:          Trystero room object (joinRoom result)
-            //    selfId:        our Trystero peer id (stable per session)
-            //    hostPeerId:    peerId of host (joiners set this on welcome)
-            //    lobbyId:       the Trystero room id for this lobby
-            //    sendX / getX:  Trystero action pair wrappers (see openRoom)
+            //    ws:            WebSocket connection to the relay
+            //    myClientId:    UUID we generated for this tab (stable per
+            //                   page load; serves as our app-level identity)
+            //    hostClientId:  clientId of the host (joiners set this when
+            //                   they receive the host's `welcome` message)
+            //    lobbyId:       lobby id (room id passed as ?lobby= to the
+            //                   relay; same value for everyone in the lobby)
             //    state:         authoritative lobby/draft state (host owns
             //                   it; players receive snapshots)
             // ============================================================
             let isHost = false;
             let myPlayerIndex = -1;
             let myName = "";
-            let room = null;
-            let selfId = null;
-            let hostPeerId = null;
+            let ws = null;
+            let myClientId = null;
+            let hostClientId = null;
             let lobbyId = null;
-            let sendWelcome = null, sendState = null, sendDraftAction = null;
-            let sendSetName = null, sendBlindAck = null, sendError = null;
             let state = makeEmptyState();
 
             // Blind-phase bookkeeping.
@@ -600,7 +589,7 @@
                     2
                 );
 
-                initStrategyUi();
+                initRelayUi();
 
                 if (urlLobby) {
                     // Joining an existing lobby
@@ -613,47 +602,53 @@
             }
 
             // ------------------------------------------------------------
-            // Trystero strategy settings UI
+            // Relay URL settings UI
             //
-            // Strategy persists on every dropdown change — no explicit Save
-            // click. Whenever it changes (from either the landing-page panel
-            // or the in-lobby control) we rebuild the share link so the host
-            // always pastes a URL matching the currently-selected strategy.
+            // The relay URL is the wss:// endpoint of the AWS WebSocket
+            // relay (see /aws/draft-relay.yaml). Default points at the
+            // current production deployment; can be overridden in
+            // Advanced or via ?relay=<url>. Changes save automatically and
+            // propagate to the share link so the host always pastes a URL
+            // matching their selected relay.
             // ------------------------------------------------------------
-            function initStrategyUi() {
-                const cur = currentStrategy();
-                syncStrategyInputs(cur);
+            function initRelayUi() {
+                const cur = currentRelayUrl();
+                syncRelayInputs(cur);
             }
 
-            function syncStrategyInputs(v) {
-                ["strategySelect", "strategySelectHost"].forEach((id) => {
+            function syncRelayInputs(v) {
+                ["relayUrlInput", "relayUrlInputHost"].forEach((id) => {
                     const el = document.getElementById(id);
                     if (el && el.value !== v) el.value = v;
                 });
             }
 
-            function applyStrategyChoice(v, sourceId) {
-                if (!TRYSTERO_STRATEGIES[v]) return;
-                saveStrategy(v);
-                syncStrategyInputs(v);
-                log(`Network strategy: ${TRYSTERO_STRATEGIES[v]}`, "info");
+            function applyRelayChoice(v) {
+                v = (v || "").trim();
+                if (!/^wss?:\/\//i.test(v)) {
+                    log("Relay URL must start with wss:// or ws://", "bad");
+                    return;
+                }
+                saveRelayUrl(v);
+                syncRelayInputs(v);
+                log(`Relay URL: ${v}`, "info");
                 refreshShareLink();
-                if (room && isHost) {
+                if (ws && isHost) {
                     log(
-                        "Strategy changed after lobby was opened — the share link has " +
-                        "been updated, but you must re-create the lobby for the new " +
-                        "strategy to actually take effect.",
+                        "Relay URL changed after the lobby was opened — the share " +
+                        "link has been updated, but you must re-create the lobby " +
+                        "for the new relay to actually take effect.",
                         "bad"
                     );
                 }
             }
 
-            function onStrategyChange() {
-                applyStrategyChoice(document.getElementById("strategySelect").value, "strategySelect");
+            function onRelayUrlChange() {
+                applyRelayChoice(document.getElementById("relayUrlInput").value);
             }
 
-            function onStrategyChangeHost() {
-                applyStrategyChoice(document.getElementById("strategySelectHost").value, "strategySelectHost");
+            function onRelayUrlChangeHost() {
+                applyRelayChoice(document.getElementById("relayUrlInputHost").value);
             }
 
             function refreshShareLink() {
@@ -662,10 +657,10 @@
                 input.value = buildShareUrl(lobbyId);
             }
 
-            function onResetStrategy() {
-                try { localStorage.removeItem(TRYSTERO_STRATEGY_KEY); } catch (e) {}
-                syncStrategyInputs("torrent");
-                log("Strategy reset to default (BitTorrent trackers).", "info");
+            function onResetRelayUrl() {
+                try { localStorage.removeItem(RELAY_URL_KEY); } catch (e) {}
+                syncRelayInputs(DEFAULT_RELAY_URL);
+                log("Relay URL reset to default.", "info");
                 refreshShareLink();
             }
 
@@ -705,118 +700,34 @@
             }
 
             // ============================================================
-            // Trystero networking
+            // WebSocket relay networking
             // ============================================================
-            // Public STUN (+ a free TURN) for NAT traversal. Trystero forwards
-            // this to the underlying RTCPeerConnection. The openrelay.metered.ca
-            // community relay is a useful fallback when STUN alone cannot punch
-            // through symmetric NAT (common on corporate / Windows Defender).
-            const PEER_ICE_CONFIG = {
-                iceServers: [
-                    { urls: "stun:stun.l.google.com:19302" },
-                    { urls: "stun:stun1.l.google.com:19302" },
-                    { urls: "stun:stun.cloudflare.com:3478" },
-                    {
-                        urls: "turn:openrelay.metered.ca:80",
-                        username: "openrelayproject",
-                        credential: "openrelayproject"
-                    },
-                    {
-                        urls: "turn:openrelay.metered.ca:443",
-                        username: "openrelayproject",
-                        credential: "openrelayproject"
-                    },
-                    {
-                        urls: "turn:openrelay.metered.ca:443?transport=tcp",
-                        username: "openrelayproject",
-                        credential: "openrelayproject"
-                    }
-                ],
-                sdpSemantics: "unified-plan"
-            };
-
+            // The default points at the production AWS deployment of
+            // /aws/draft-relay.yaml. Override per-tab via the Advanced
+            // panel (saves to localStorage) or per-link via ?relay=<wss://...>.
             // ------------------------------------------------------------
-            // Trystero strategy selection. Default is BitTorrent trackers —
-            // many public trackers distributed globally, hardest to block.
-            // Users in very restrictive networks can switch to Nostr or MQTT.
-            // Strategy is persisted in localStorage and can be overridden per
-            // link via ?strategy=nostr.
-            // ------------------------------------------------------------
-            const TRYSTERO_APP_ID = "aow4-draft-lobby";
-            const TRYSTERO_STRATEGIES = {
-                torrent: "BitTorrent trackers (recommended)",
-                nostr: "Nostr relays",
-                mqtt: "MQTT brokers"
-            };
-            const TRYSTERO_STRATEGY_KEY = "aow4_draft_strategy_v1";
+            const DEFAULT_RELAY_URL = "wss://fu140pmh2c.execute-api.eu-central-1.amazonaws.com/prod";
+            const RELAY_URL_KEY = "aow4_draft_relay_url_v1";
 
-            function currentStrategy() {
-                const fromUrl = new URLSearchParams(window.location.search).get("strategy");
-                if (fromUrl && TRYSTERO_STRATEGIES[fromUrl]) return fromUrl;
+            function currentRelayUrl() {
+                const fromUrl = new URLSearchParams(window.location.search).get("relay");
+                if (fromUrl && /^wss?:\/\//i.test(fromUrl)) return fromUrl;
                 try {
-                    const v = localStorage.getItem(TRYSTERO_STRATEGY_KEY);
-                    if (v && TRYSTERO_STRATEGIES[v]) return v;
+                    const v = localStorage.getItem(RELAY_URL_KEY);
+                    if (v && /^wss?:\/\//i.test(v)) return v;
                 } catch (e) {}
-                return "torrent";
+                return DEFAULT_RELAY_URL;
             }
 
-            function saveStrategy(v) {
-                try { localStorage.setItem(TRYSTERO_STRATEGY_KEY, v); } catch (e) {}
+            function saveRelayUrl(v) {
+                try { localStorage.setItem(RELAY_URL_KEY, v); } catch (e) {}
             }
 
-            // ------------------------------------------------------------
-            // Room lifecycle. Both host and joiners call openRoom(id) with
-            // the same lobby id. Trystero opens an RTCPeerConnection mesh
-            // between everyone in the room. We then wire up our named
-            // actions (welcome/state/draftAction/setName/blindAck/error).
-            //
-            // Action-name ergonomics: Trystero allows up to 12 bytes per
-            // action name. Keep them short.
-            // ------------------------------------------------------------
-            async function openRoom(roomId) {
-                if (room) {
-                    try { room.leave(); } catch (e) {}
-                    room = null;
-                }
-                const strategy = currentStrategy();
-                log(
-                    `Opening room via Trystero (${TRYSTERO_STRATEGIES[strategy]})...`,
-                    "info"
-                );
-                let mod;
-                try {
-                    mod = await window.loadTrystero(strategy);
-                } catch (err) {
-                    log("Failed to load Trystero module: " + (err && err.message), "bad");
-                    throw err;
-                }
-                selfId = mod.selfId;
-                room = mod.joinRoom(
-                    { appId: TRYSTERO_APP_ID, rtcConfig: PEER_ICE_CONFIG },
-                    roomId
-                );
-
-                // Action pairs: [send, receive].
-                const [sW, gW] = room.makeAction("welcome");
-                const [sS, gS] = room.makeAction("state");
-                const [sA, gA] = room.makeAction("draftAction");
-                const [sN, gN] = room.makeAction("setName");
-                const [sB, gB] = room.makeAction("blindAck");
-                const [sE, gE] = room.makeAction("error");
-                sendWelcome = sW; sendState = sS; sendDraftAction = sA;
-                sendSetName = sN; sendBlindAck = sB; sendError = sE;
-
-                gW((msg, peerId) => handleWelcomeMsg(msg, peerId));
-                gS((msg, peerId) => handleStateMsg(msg, peerId));
-                gA((msg, peerId) => handleDraftActionMsg(msg, peerId));
-                gN((msg, peerId) => handleSetNameMsg(msg, peerId));
-                gB((msg, peerId) => handleBlindAckMsg(msg, peerId));
-                gE((msg, peerId) => handleErrorMsg(msg, peerId));
-
-                room.onPeerJoin((peerId) => onPeerJoined(peerId));
-                room.onPeerLeave((peerId) => onPeerLeft(peerId));
-
-                return selfId;
+            function newClientId() {
+                if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+                // Fallback for older browsers.
+                return "c-" + Math.random().toString(36).slice(2, 10) +
+                              Math.random().toString(36).slice(2, 10);
             }
 
             function makeLobbyId() {
@@ -828,33 +739,129 @@
                 return s;
             }
 
+            // ------------------------------------------------------------
+            // openSocket — both host and joiners call this with the same
+            // lobby id. Returns a Promise that resolves when the relay
+            // accepts the connection (`open` event). On failure the
+            // Promise rejects so the caller can show a friendly alert.
+            // ------------------------------------------------------------
+            function openSocket(roomId) {
+                return new Promise((resolve, reject) => {
+                    if (ws) {
+                        try { ws.close(); } catch (e) {}
+                        ws = null;
+                    }
+                    const base = currentRelayUrl();
+                    const url = base + (base.includes("?") ? "&" : "?") +
+                                "lobby=" + encodeURIComponent(roomId);
+                    log(`Connecting to relay ${base}...`, "info");
+                    let s;
+                    try {
+                        s = new WebSocket(url);
+                    } catch (err) {
+                        reject(err);
+                        return;
+                    }
+                    let settled = false;
+                    s.onopen = () => {
+                        ws = s;
+                        settled = true;
+                        log("Relay connected.", "info");
+                        resolve();
+                    };
+                    s.onmessage = (ev) => onRelayMessage(ev);
+                    s.onerror = (ev) => {
+                        log("Relay socket error.", "bad");
+                        if (!settled) { settled = true; reject(new Error("WebSocket error")); }
+                    };
+                    s.onclose = (ev) => {
+                        const reason = ev.code === 1006 ? "abnormal close (network or relay down)"
+                                       : ev.reason || `code ${ev.code}`;
+                        log(`Relay closed: ${reason}`, "bad");
+                        if (ws === s) ws = null;
+                        if (!settled) { settled = true; reject(new Error("Relay closed: " + reason)); }
+                        if (!isHost) {
+                            // Joiner lost the host's only path to us.
+                            hostClientId = null;
+                        }
+                    };
+                });
+            }
+
+            // wsSend — outgoing message helper.
+            //   type:    "hello" | "welcome" | "state" | "action" |
+            //            "setName" | "blindAck" | "error"
+            //   payload: extra fields merged into the message
+            //   target:  optional clientId; recipients with a different
+            //            clientId silently drop targeted messages.
+            function wsSend(type, payload, target) {
+                if (!ws || ws.readyState !== WebSocket.OPEN) return false;
+                const msg = Object.assign({ type, from: myClientId }, payload || {});
+                if (target) msg.target = target;
+                try {
+                    ws.send(JSON.stringify(msg));
+                    return true;
+                } catch (e) {
+                    log("wsSend failed: " + (e && e.message), "bad");
+                    return false;
+                }
+            }
+
+            // onRelayMessage — relay envelope is { from: <connId>, data: <inner> }
+            // where `from` is the relay-assigned connectionId of the sender
+            // (we ignore it; we identify peers by their inner clientId).
+            function onRelayMessage(ev) {
+                let env;
+                try { env = JSON.parse(ev.data); } catch (e) { return; }
+                const msg = env && env.data;
+                if (!msg || typeof msg !== "object") return;
+                if (msg.target && msg.target !== myClientId) return;
+                if (msg.from && msg.from === myClientId) return; // never accept our own echo
+                dispatch(msg);
+            }
+
+            function dispatch(msg) {
+                switch (msg.type) {
+                    case "hello":    handleHelloMsg(msg);    break;
+                    case "welcome":  handleWelcomeMsg(msg);  break;
+                    case "state":    handleStateMsg(msg);    break;
+                    case "action":   handleActionMsg(msg);   break;
+                    case "setName":  handleSetNameMsg(msg);  break;
+                    case "blindAck": handleBlindAckMsg(msg); break;
+                    case "error":    handleErrorMsg(msg);    break;
+                    case "leaving":  handleLeavingMsg(msg);  break;
+                    default:         /* ignore unknown */    break;
+                }
+            }
+
+            // ============================================================
+            // Host flow
+            // ============================================================
             async function hostCreateLobby() {
                 myName = (document.getElementById("hostName").value || "Host").trim();
                 if (!myName) myName = "Host";
                 isHost = true;
                 myPlayerIndex = 0;
+                myClientId = newClientId();
 
                 state = makeEmptyState();
-                state.players = [{ peerId: "self", name: myName, index: 0 }];
+                state.players = [{ peerId: myClientId, name: myName, index: 0 }];
                 state.picks[0] = { faction: [], society: [], ruler: [] };
                 const presetName = document.getElementById("presetSelect").value;
                 applyPreset(presetName);
 
                 lobbyId = makeLobbyId();
                 try {
-                    await openRoom(lobbyId);
+                    await openSocket(lobbyId);
                 } catch (err) {
                     alert(
                         "Could not open the lobby.\n\n" +
                         (err && err.message ? err.message : err) +
-                        "\n\nIf the trystero CDN is blocked on your network, " +
-                        "try a different strategy under Advanced."
+                        "\n\nIf the relay is unreachable, check the URL under " +
+                        "Advanced or wait a moment and try again."
                     );
                     return;
                 }
-                // Replace the placeholder "self" peerId with our real Trystero id
-                // so randomizeOrder can re-locate us after shuffling.
-                state.players[0].peerId = selfId;
 
                 document.getElementById("shareLink").value = buildShareUrl(lobbyId);
                 document.getElementById("hostLobbyId").textContent = lobbyId;
@@ -863,40 +870,58 @@
                 renderHost();
             }
 
-            // Host side: a new peer joined the Trystero room.
-            function onPeerJoined(peerId) {
-                if (!isHost) {
-                    // Joiners don't need to do anything here — they learn about
-                    // the host via the `welcome` message they receive.
-                    return;
-                }
+            // Host receives a joiner's `hello` — assign them a slot and reply.
+            function handleHelloMsg(msg) {
+                if (!isHost) return;
                 if (state.phase !== "lobby") {
-                    try { sendError({ message: "Draft already started." }, peerId); } catch (e) {}
+                    wsSend("error", { message: "Draft already started." }, msg.from);
                     return;
                 }
-                if (state.players.length >= state.preset.players) {
-                    try { sendError({ message: "Lobby is full." }, peerId); } catch (e) {}
-                    return;
+                // Idempotent — if we've seen this clientId already, just re-welcome.
+                let existing = state.players.find((p) => p.peerId === msg.from);
+                if (!existing) {
+                    if (state.players.length >= state.preset.players) {
+                        wsSend("error", { message: "Lobby is full." }, msg.from);
+                        return;
+                    }
+                    const newIndex = state.players.length;
+                    existing = {
+                        peerId: msg.from,
+                        name: ("" + (msg.name || "")).slice(0, 24) || ("Player " + (newIndex + 1)),
+                        index: newIndex
+                    };
+                    state.players.push(existing);
+                    state.picks[newIndex] = { faction: [], society: [], ruler: [] };
+                    log(`${existing.name} connected.`, "info");
                 }
-                const newIndex = state.players.length;
-                const playerEntry = { peerId, name: "Player " + (newIndex + 1), index: newIndex };
-                state.players.push(playerEntry);
-                state.picks[newIndex] = { faction: [], society: [], ruler: [] };
-
-                try { sendWelcome({ playerIndex: newIndex }, peerId); } catch (e) {}
+                wsSend("welcome", { playerIndex: existing.index, hostName: myName }, msg.from);
                 broadcastState();
                 renderHost();
-                log(`${playerEntry.name} connected.`, "info");
             }
 
-            function onPeerLeft(peerId) {
-                if (!isHost) {
-                    if (peerId === hostPeerId) {
-                        log("Host disconnected.", "bad");
-                    }
-                    return;
+            function handleSetNameMsg(msg) {
+                if (!isHost) return;
+                const player = state.players.find((p) => p.peerId === msg.from);
+                if (!player) return;
+                player.name = ("" + (msg.name || "")).slice(0, 24) || player.name;
+                broadcastState();
+                renderHost();
+            }
+
+            function handleActionMsg(msg) {
+                if (!isHost) return;
+                const player = state.players.find((p) => p.peerId === msg.from);
+                if (!player) return;
+                attemptAction(player.index, msg.action, msg.category, msg.entryId);
+            }
+
+            function handleLeavingMsg(msg) {
+                if (isHost) {
+                    handlePlayerDisconnect(msg.from);
+                } else if (msg.from === hostClientId) {
+                    log("Host disconnected.", "bad");
+                    hostClientId = null;
                 }
-                handlePlayerDisconnect(peerId);
             }
 
             function handlePlayerDisconnect(peerId) {
@@ -917,42 +942,20 @@
                 }
             }
 
-            // ------------------------------------------------------------
-            // Host-side action handlers.
-            // ------------------------------------------------------------
-            function handleSetNameMsg(msg, peerId) {
-                if (!isHost) return;
-                if (!msg || typeof msg !== "object") return;
-                const player = state.players.find((p) => p.peerId === peerId);
-                if (!player) return;
-                player.name = ("" + (msg.name || "")).slice(0, 24) || player.name;
-                broadcastState();
-                renderHost();
-            }
-
-            function handleDraftActionMsg(msg, peerId) {
-                if (!isHost) return;
-                if (!msg || typeof msg !== "object") return;
-                const player = state.players.find((p) => p.peerId === peerId);
-                if (!player) return;
-                attemptAction(player.index, msg.action, msg.category, msg.entryId);
-            }
-
             function broadcastState() {
-                if (!sendState) return;
-                try { sendState({ state: state }); } catch (e) {}
+                wsSend("state", { state: state });
             }
 
             function buildShareUrl(id) {
                 const base = window.location.href.split("?")[0];
                 const parts = ["lobby=" + encodeURIComponent(id)];
-                const s = currentStrategy();
-                if (s !== "torrent") parts.push("strategy=" + encodeURIComponent(s));
+                const r = currentRelayUrl();
+                if (r !== DEFAULT_RELAY_URL) parts.push("relay=" + encodeURIComponent(r));
                 return base + "?" + parts.join("&");
             }
 
             // ============================================================
-            // Player (joiner) flow
+            // Joiner flow
             // ============================================================
             async function joinLobby() {
                 myName = (document.getElementById("joinName").value || "").trim();
@@ -964,39 +967,42 @@
                 }
                 isHost = false;
                 lobbyId = id;
+                myClientId = newClientId();
+                hostClientId = null;
 
                 try {
-                    await openRoom(lobbyId);
+                    await openSocket(lobbyId);
                 } catch (err) {
                     alert(
                         "Could not join the lobby.\n\n" +
                         (err && err.message ? err.message : err) +
-                        "\n\nIf the trystero CDN is blocked on your network, " +
-                        "try a different strategy under Advanced."
+                        "\n\nIf the relay is unreachable, double-check the URL " +
+                        "under Advanced or ask the host to share their settings."
                     );
                     return;
                 }
 
-                log("Joined room " + lobbyId + ", waiting for host...", "info");
+                wsSend("hello", { name: myName });
+                log("Joined relay for " + lobbyId + ", waiting for host...", "info");
                 showSection("hostSection");
                 document.getElementById("hostLobbyId").textContent = lobbyId;
                 document.getElementById("hostOnlyControls").classList.add("hidden");
                 document.getElementById("shareRow").classList.add("hidden");
                 renderHost();
 
-                // If we don't hear a welcome from a host within a reasonable
-                // time, the lobby id is likely wrong or the host is offline.
+                // If no welcome arrives within a reasonable time, the host
+                // is offline or the lobby id is wrong.
                 setTimeout(() => {
-                    if (!isHost && !hostPeerId) {
+                    if (!isHost && !hostClientId) {
                         log(
-                            "No host detected after 20s. Double-check the lobby id or " +
-                                "that the host is online with the same network strategy.",
+                            "No host responded after 20s. Double-check the lobby id, " +
+                            "or that the host is online and using the same relay URL.",
                             "bad"
                         );
                         alert(
                             "Couldn't find the lobby host.\n\n" +
-                            "Make sure the host is online and you're both using the same " +
-                            "network strategy (see Advanced)."
+                            "Make sure the host is online and you're both using the " +
+                            "same relay URL (see Advanced)."
                         );
                     }
                 }, 20000);
@@ -1005,28 +1011,27 @@
             // ------------------------------------------------------------
             // Joiner-side message handlers.
             // ------------------------------------------------------------
-            function handleWelcomeMsg(msg, peerId) {
+            function handleWelcomeMsg(msg) {
                 if (isHost) return;
-                if (!msg || typeof msg !== "object") return;
-                hostPeerId = peerId;
+                hostClientId = msg.from;
                 myPlayerIndex = msg.playerIndex;
                 log("Joined as Player " + (myPlayerIndex + 1), "info");
-                // Send our name to the host now that we know who they are.
-                try { sendSetName({ name: myName }, hostPeerId); } catch (e) {}
+                // Make sure the host has our preferred display name (may already
+                // be set from `hello`, but resending is harmless and idempotent).
+                wsSend("setName", { name: myName }, hostClientId);
             }
 
-            function handleStateMsg(msg, peerId) {
+            function handleStateMsg(msg) {
                 if (isHost) return;
-                if (!msg || typeof msg !== "object") return;
                 // Trust the first state sender as the host if we haven't
-                // received a welcome yet (mitigates edge-case ordering).
-                if (!hostPeerId) hostPeerId = peerId;
-                if (peerId !== hostPeerId) return;
+                // seen a welcome yet (handles edge-case ordering).
+                if (!hostClientId) hostClientId = msg.from;
+                if (msg.from !== hostClientId) return;
 
                 const prevPhase = state.phase;
                 state = msg.state;
-                // Our slot may shift after randomizeOrder — re-locate via selfId.
-                const me = state.players.find((p) => p.peerId === selfId);
+                // Our slot may shift after randomizeOrder — re-locate via clientId.
+                const me = state.players.find((p) => p.peerId === myClientId);
                 if (me) myPlayerIndex = me.index;
                 cleanupMyPendingBlind();
                 if (state.phase === "draft") {
@@ -1041,17 +1046,15 @@
                 }
             }
 
-            function handleBlindAckMsg(msg, peerId) {
+            function handleBlindAckMsg(msg) {
                 if (isHost) return;
-                if (!msg || typeof msg !== "object") return;
-                if (hostPeerId && peerId !== hostPeerId) return;
+                if (hostClientId && msg.from !== hostClientId) return;
                 myPendingBlind[msg.groupId] = myPendingBlind[msg.groupId] || [];
                 myPendingBlind[msg.groupId].push(msg.submission);
                 renderDraft();
             }
 
-            function handleErrorMsg(msg, peerId) {
-                if (!msg || typeof msg !== "object") return;
+            function handleErrorMsg(msg) {
                 alert("Host says: " + (msg.message || "error"));
             }
 
@@ -1060,8 +1063,8 @@
                     // After randomizeOrder the host may have been shuffled to
                     // player B; always submit under our actual seat, not 0.
                     attemptAction(myPlayerIndex, action, category, entryId);
-                } else if (hostPeerId && sendDraftAction) {
-                    try { sendDraftAction({ action, category, entryId }, hostPeerId); } catch (e) {}
+                } else if (hostClientId) {
+                    wsSend("action", { action, category, entryId }, hostClientId);
                 }
             }
 
@@ -1073,10 +1076,19 @@
                     state.players[0].name = name;
                     broadcastState();
                     renderHost();
-                } else if (hostPeerId && sendSetName) {
-                    try { sendSetName({ name }, hostPeerId); } catch (e) {}
+                } else if (hostClientId) {
+                    wsSend("setName", { name }, hostClientId);
                 }
             }
+
+            // Best-effort goodbye when the tab closes — lets the relay /
+            // peers learn we're gone before TTL/$disconnect cleanup fires.
+            window.addEventListener("beforeunload", () => {
+                if (ws && ws.readyState === WebSocket.OPEN && myClientId) {
+                    try { wsSend("leaving", {}); } catch (e) {}
+                    try { ws.close(); } catch (e) {}
+                }
+            });
 
             // ============================================================
             // Draft state machine (host-authoritative)
@@ -1121,7 +1133,7 @@
                     shuffled.forEach((p, i) => (p.index = i));
                     state.players = shuffled.sort((a, b) => a.index - b.index);
                     if (isHost) {
-                        const me = state.players.find((p) => p.peerId === selfId);
+                        const me = state.players.find((p) => p.peerId === myClientId);
                         if (me) myPlayerIndex = me.index;
                     }
                     const order = state.players
@@ -1373,10 +1385,8 @@
                     myPendingBlind[group.groupId].push(submission);
                 } else {
                     const player = state.players.find((p) => p.index === playerIndex);
-                    if (player && sendBlindAck) {
-                        try {
-                            sendBlindAck({ groupId: group.groupId, submission }, player.peerId);
-                        } catch (e) {}
+                    if (player) {
+                        wsSend("blindAck", { groupId: group.groupId, submission }, player.peerId);
                     }
                 }
 
@@ -1392,8 +1402,8 @@
                 log(`P${playerIndex + 1}: ${message}`, "bad");
                 if (playerIndex === myPlayerIndex) return;
                 const player = state.players.find((p) => p.index === playerIndex);
-                if (!player || !sendError) return;
-                try { sendError({ message }, player.peerId); } catch (e) {}
+                if (!player) return;
+                wsSend("error", { message }, player.peerId);
             }
 
             // ============================================================
@@ -1920,28 +1930,27 @@
                 </div>
 
                 <details style="margin-top:12px">
-                    <summary style="cursor:pointer;color:#9bd2ff">Advanced — Network strategy</summary>
+                    <summary style="cursor:pointer;color:#9bd2ff">Advanced — Relay URL</summary>
                     <div class="draft-help" style="margin-top:8px">
-                        This lobby uses <strong>Trystero</strong> for peer-to-peer WebRTC —
-                        no central broker that can be geo-blocked. If the default BitTorrent
-                        trackers are unreachable on your network (rare, even from RU/BY),
-                        switch to Nostr or MQTT. <em>Both sides of a draft must use the
-                        same strategy.</em>
+                        Messages flow through a tiny <strong>WebSocket relay</strong>
+                        (AWS API Gateway WebSocket + Lambda + DynamoDB; see
+                        <code>/aws/draft-relay.yaml</code>). The default URL points at
+                        the production deployment. <em>Both sides of a draft must use
+                        the same relay URL.</em>
                     </div>
                     <div class="row">
-                        <label style="min-width:80px">Strategy:</label>
-                        <select id="strategySelect" class="inputfield" style="min-width:260px" onchange="onStrategyChange()">
-                            <option value="torrent">BitTorrent trackers (recommended)</option>
-                            <option value="nostr">Nostr relays</option>
-                            <option value="mqtt">MQTT brokers</option>
-                        </select>
-                        <button class="small-btn" onclick="onResetStrategy()">Reset</button>
+                        <label style="min-width:80px">Relay:</label>
+                        <input id="relayUrlInput" class="inputfield" type="text"
+                               style="min-width:380px"
+                               placeholder="wss://...execute-api.<region>.amazonaws.com/<stage>"
+                               onchange="onRelayUrlChange()" />
+                        <button class="small-btn" onclick="onResetRelayUrl()">Reset</button>
                     </div>
                     <div class="draft-help">
-                        Changes save automatically and are reflected in the share link below.
-                        The default (BitTorrent trackers) uses no query parameter; Nostr and MQTT
-                        append <code>&amp;strategy=nostr</code> / <code>&amp;strategy=mqtt</code>
-                        to the link so your opponent picks the same strategy.
+                        Changes save automatically and update the share link below. The
+                        default URL is omitted from the link; any custom URL is appended
+                        as <code>&amp;relay=&lt;wss://...&gt;</code> so your opponent
+                        connects to the same relay.
                     </div>
                 </details>
             </div>
@@ -1978,14 +1987,13 @@
                     <button class="small-btn" onclick="copyShareLink()">Copy</button>
                 </div>
 
-                <div class="row" id="strategyRowHost">
-                    <span>Network:</span>
-                    <select id="strategySelectHost" class="inputfield" style="min-width:240px" onchange="onStrategyChangeHost()">
-                        <option value="torrent">BitTorrent trackers (recommended)</option>
-                        <option value="nostr">Nostr relays</option>
-                        <option value="mqtt">MQTT brokers</option>
-                    </select>
-                    <span class="draft-help" style="margin:0">Changes update the share link; host must re-create the lobby for a new strategy to take effect.</span>
+                <div class="row" id="relayRowHost">
+                    <span>Relay:</span>
+                    <input id="relayUrlInputHost" class="inputfield" type="text"
+                           style="min-width:380px"
+                           placeholder="wss://...execute-api.<region>.amazonaws.com/<stage>"
+                           onchange="onRelayUrlChangeHost()" />
+                    <span class="draft-help" style="margin:0">Changes update the share link; you must re-create the lobby for a new relay to take effect.</span>
                 </div>
 
                 <div class="row">
