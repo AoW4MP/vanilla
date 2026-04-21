@@ -614,33 +614,59 @@
 
             // ------------------------------------------------------------
             // Trystero strategy settings UI
+            //
+            // Strategy persists on every dropdown change — no explicit Save
+            // click. Whenever it changes (from either the landing-page panel
+            // or the in-lobby control) we rebuild the share link so the host
+            // always pastes a URL matching the currently-selected strategy.
             // ------------------------------------------------------------
             function initStrategyUi() {
-                const sel = document.getElementById("strategySelect");
-                if (!sel) return;
-                sel.value = currentStrategy();
+                const cur = currentStrategy();
+                syncStrategyInputs(cur);
             }
 
-            function onSaveStrategy() {
-                const sel = document.getElementById("strategySelect");
-                const v = sel.value;
-                if (!TRYSTERO_STRATEGIES[v]) {
-                    alert("Unknown strategy.");
-                    return;
-                }
+            function syncStrategyInputs(v) {
+                ["strategySelect", "strategySelectHost"].forEach((id) => {
+                    const el = document.getElementById(id);
+                    if (el && el.value !== v) el.value = v;
+                });
+            }
+
+            function applyStrategyChoice(v, sourceId) {
+                if (!TRYSTERO_STRATEGIES[v]) return;
                 saveStrategy(v);
-                log(`Network strategy saved: ${TRYSTERO_STRATEGIES[v]}`, "info");
-                alert(
-                    `Strategy saved: ${TRYSTERO_STRATEGIES[v]}.\n\n` +
-                    `It will be used next time you create or join a lobby. ` +
-                    `Both players must pick the same strategy (append &strategy=${v} to the share link).`
-                );
+                syncStrategyInputs(v);
+                log(`Network strategy: ${TRYSTERO_STRATEGIES[v]}`, "info");
+                refreshShareLink();
+                if (room && isHost) {
+                    log(
+                        "Strategy changed after lobby was opened — the share link has " +
+                        "been updated, but you must re-create the lobby for the new " +
+                        "strategy to actually take effect.",
+                        "bad"
+                    );
+                }
+            }
+
+            function onStrategyChange() {
+                applyStrategyChoice(document.getElementById("strategySelect").value, "strategySelect");
+            }
+
+            function onStrategyChangeHost() {
+                applyStrategyChoice(document.getElementById("strategySelectHost").value, "strategySelectHost");
+            }
+
+            function refreshShareLink() {
+                const input = document.getElementById("shareLink");
+                if (!input || !lobbyId) return;
+                input.value = buildShareUrl(lobbyId);
             }
 
             function onResetStrategy() {
                 try { localStorage.removeItem(TRYSTERO_STRATEGY_KEY); } catch (e) {}
-                document.getElementById("strategySelect").value = "torrent";
+                syncStrategyInputs("torrent");
                 log("Strategy reset to default (BitTorrent trackers).", "info");
+                refreshShareLink();
             }
 
             function showSection(id) {
@@ -1904,19 +1930,18 @@
                     </div>
                     <div class="row">
                         <label style="min-width:80px">Strategy:</label>
-                        <select id="strategySelect" class="inputfield" style="min-width:260px">
+                        <select id="strategySelect" class="inputfield" style="min-width:260px" onchange="onStrategyChange()">
                             <option value="torrent">BitTorrent trackers (recommended)</option>
                             <option value="nostr">Nostr relays</option>
                             <option value="mqtt">MQTT brokers</option>
                         </select>
-                        <button class="small-btn" onclick="onSaveStrategy()">Save</button>
                         <button class="small-btn" onclick="onResetStrategy()">Reset</button>
                     </div>
                     <div class="draft-help">
-                        Share your chosen strategy with your opponent by appending
-                        <code>&amp;strategy=nostr</code> (or <code>mqtt</code>) to the
-                        share link the host sees. The default strategy needs no query
-                        parameter.
+                        Changes save automatically and are reflected in the share link below.
+                        The default (BitTorrent trackers) uses no query parameter; Nostr and MQTT
+                        append <code>&amp;strategy=nostr</code> / <code>&amp;strategy=mqtt</code>
+                        to the link so your opponent picks the same strategy.
                     </div>
                 </details>
             </div>
@@ -1951,6 +1976,16 @@
                     <span>Share link:</span>
                     <input id="shareLink" class="inputfield share-link-input" readonly />
                     <button class="small-btn" onclick="copyShareLink()">Copy</button>
+                </div>
+
+                <div class="row" id="strategyRowHost">
+                    <span>Network:</span>
+                    <select id="strategySelectHost" class="inputfield" style="min-width:240px" onchange="onStrategyChangeHost()">
+                        <option value="torrent">BitTorrent trackers (recommended)</option>
+                        <option value="nostr">Nostr relays</option>
+                        <option value="mqtt">MQTT brokers</option>
+                    </select>
+                    <span class="draft-help" style="margin:0">Changes update the share link; host must re-create the lobby for a new strategy to take effect.</span>
                 </div>
 
                 <div class="row">
