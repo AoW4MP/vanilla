@@ -1,0 +1,1490 @@
+/* Shared styles for all status effect tags */
+strengthened,
+decaying,
+weakened,
+wet,
+berserked,
+berserk,
+bolstered_defense,
+bolstered_resistance,
+sundered_defense,
+sundered_resistance,
+burning,
+frozen,
+bleeding,
+ghostfire,
+poisoned,
+blinded,
+blind,
+immobilized,
+slowed,
+diseased,
+marked,
+stunned,
+condemned,
+electrified,
+distracted,
+regeneration,
+dominated,
+fortune,
+misfortune,
+insanity,
+infectious_insanity,
+gilded,
+disrupted,
+demoralized,
+static_charge,
+status_protection,
+awakened,
+hastened,
+steadfast,
+grace,
+hyperawareness,
+constricted,
+watchful {
+    max-width: 30px;
+    top: 7px;
+    position: relative;
+    margin-top: -10px;
+}
+
+/* Unique content property for each tag */
+strengthened {
+    content: url(/vanilla/Icons/StatusEffects/strengthened.png);
+}
+
+decaying {
+    content: url(/vanilla/Icons/StatusEffects/decaying.png);
+}
+
+weakened {
+    content: url(/vanilla/Icons/StatusEffects/weakened.png);
+}
+
+wet {
+    content: url(/vanilla/Icons/StatusEffects/wet.png);
+}
+
+berserked,
+berserk {
+    content: url(/vanilla/Icons/StatusEffects/berserk.png);
+}
+
+bolstered_defense {
+    content: url(/vanilla/Icons/StatusEffects/bolstereddefense.png);
+}
+
+sundered_resistance {
+    content: url(/vanilla/Icons/StatusEffects/sunderedresistance.png);
+}
+
+sundered_defense {
+    content: url(/vanilla/Icons/StatusEffects/sundereddefense.png);
+}
+
+bolstered_resistance {
+    content: url(/vanilla/Icons/StatusEffects/bolsteredresistance.png);
+}
+
+bleeding {
+    content: url(/vanilla/Icons/StatusEffects/bleeding.png);
+}
+
+frozen {
+    content: url(/vanilla/Icons/StatusEffects/frozen.png);
+}
+
+burning {
+    content: url(/vanilla/Icons/StatusEffects/burning.png);
+}
+
+ghostfire {
+    content: url(/vanilla/Icons/StatusEffects/ghostfire.png);
+}
+
+poisoned {
+    content: url(/vanilla/Icons/StatusEffects/poisoned.png);
+}
+
+blinded,
+blind {
+    content: url(/vanilla/Icons/StatusEffects/blinded.png);
+}
+
+immobilized {
+    content: url(/vanilla/Icons/StatusEffects/immobilized.png);
+}
+
+slowed {
+    content: url(/vanilla/Icons/StatusEffects/slowed.png);
+}
+
+diseased {
+    content: url(/vanilla/Icons/StatusEffects/diseased.png);
+}
+
+marked {
+    content: url(/vanilla/Icons/StatusEffects/marked.png);
+}
+
+stunned {
+    content: url(/vanilla/Icons/StatusEffects/stunned.png);
+}
+
+condemned {
+    content: url(/vanilla/Icons/StatusEffects/condemned.png);
+}
+
+electrified {
+    content: url(/vanilla/Icons/StatusEffects/electrified.png);
+}
+
+distracted {
+    content: url(/vanilla/Icons/StatusEffects/distracted.png);
+}
+
+regeneration {
+    content: url(/vanilla/Icons/StatusEffects/regeneration.png);
+}
+
+dominated {
+    content: url(/vanilla/Icons/StatusEffects/mindcontrolled.png);
+}
+
+misfortune {
+    content: url(/vanilla/Icons/StatusEffects/misfortune.png);
+}
+
+fortune {
+    content: url(/vanilla/Icons/StatusEffects/fortune.png);
+}
+
+insanity {
+    content: url(/vanilla/Icons/StatusEffects/insanity.png);
+}
+
+infectious_insanity {
+    content: url(/vanilla/Icons/StatusEffects/infectiousinsanity.png);
+}
+
+gilded {
+    content: url(/vanilla/Icons/StatusEffects/gilded.png);
+}
+
+disrupted {
+    content: url(/vanilla/Icons/StatusEffects/disrupted.png);
+}
+
+demoralized {
+    content: url(/vanilla/Icons/StatusEffects/demoralized.png);
+}
+
+staticcharge {
+    content: url(/vanilla/Icons/StatusEffects/staticcharge.png);
+}
+
+status_protection {
+    content: url(/vanilla/Icons/StatusEffects/statusprotection.png);
+}
+
+awakened {
+    content: url(/vanilla/Icons/StatusEffects/awaken.png);
+}
+
+hastened {
+    content: url(/vanilla/Icons/StatusEffects/hastened.png);
+}
+
+steadfast {
+    content: url(/vanilla/Icons/StatusEffects/steadfast.png);
+}
+
+hyperawareness {
+    content: url(/vanilla/Icons/StatusEffects/hyperAwareness.png);
+}
+
+grace {
+    content: url(/vanilla/Icons/StatusEffects/grace.png);
+}
+
+constricted {
+    content: url(/vanilla/Icons/StatusEffects/constricted.png);
+}
+
+watchful {
+    content: url(/vanilla/Icons/UnitIcons/watchful.png);
+}
+
+/* ///////////////////////////////////// status effect tags */
+
+classWarrior,
+classDeathKnight,
+classRitualist,
+classMage,
+classDefender,
+classSpellblade,
+classRanger,
+classWarlock,
+classBattlesaint {
+    max-width: 20px;
+    top: 7px;
+    position: relative;
+    margin-top: -10px;
+}
+
+haste_berries,
+silvertongue_fruit,
+void_stones,
+archon_blood,
+arcanium_ore,
+focus_crystals,
+fireforge_stone,
+blood_glass,
+astral_dew, tranquility_pool,rainbow_clover {
+    max-width: 25px;
+    top: 7px;
+    position: relative;
+    margin-top: -10px;
+}
+
+haste_berries {
+       content: url(/vanilla/Icons/WorldStructures/haste_berries.png);
+}
+silvertongue_fruit {
+       content: url(/vanilla/Icons/WorldStructures/silvertongue_fruit.png);
+}
+void_stones {
+       content: url(/vanilla/Icons/WorldStructures/void_stones.png);
+}
+
+archon_blood {
+       content: url(/vanilla/Icons/WorldStructures/archon_blood.png);
+}
+arcanium_ore {
+       content: url(/vanilla/Icons/WorldStructures/arcanium_ore.png);
+}
+focus_crystals {
+       content: url(/vanilla/Icons/WorldStructures/focus_crystals.png);
+}
+fireforge_stone {
+       content: url(/vanilla/Icons/WorldStructures/fireforge_stone.png);
+}
+blood_glass {
+       content: url(/vanilla/Icons/WorldStructures/blood_glass.png);
+}
+astral_dew {
+       content: url(/vanilla/Icons/WorldStructures/astral_dew.png);
+}tranquility_pool {
+       content: url(/vanilla/Icons/WorldStructures/tranquility_pool.png);
+}rainbow_clover  {
+       content: url(/vanilla/Icons/WorldStructures/rainbow_clover.png);
+}
+
+classWarrior {
+    content: url(/vanilla/Icons/Text/warrior.png);
+}
+
+classDeathKnight {
+    content: url(/vanilla/Icons/Text/death_knight.png);
+}
+
+classRitualist {
+    content: url(/vanilla/Icons/Text/ritualist.png);
+}
+
+classMage {
+    content: url(/vanilla/Icons/Text/mage.png);
+}
+
+classSpellblade {
+    content: url(/vanilla/Icons/Text/spellblade.png);
+}
+
+classDefender {
+    content: url(/vanilla/Icons/Text/defender.png);
+}
+classRanger {
+    content: url(/vanilla/Icons/Text/ranger.png);
+}
+classWarlock {
+    content: url(/vanilla/Icons/Text/warlock.png);
+}
+classBattlesaint {
+    content: url(/vanilla/Icons/Text/battlesaint.png);
+}
+
+/* //////////////////////////////////////classes */
+
+GIANTKINGS,
+DRAGONLORDS,
+ELDRITCHREALMS,
+WAYSOFWAR,
+HERALDOFGLORY,
+PRIMALFURY,
+EMPIRESANDASHES,
+ARCHONPROPHECY,
+COSMICWANDERER,
+THRONESOFBLOOD,
+RISEFROMRUIN {
+    max-width: 20px;
+    top: 7px;
+    position: relative;
+    margin-top: -10px;
+}
+
+DRAGONLORDS {
+    content: url(/vanilla/Icons/Text/DragonDawn.png);
+}
+
+GIANTKINGS {
+    content: url(/vanilla/Icons/Text/GKLogo.png);
+}
+
+EMPIRESANDASHES {
+    content: url(/vanilla/Icons/Text/empireAshes.png);
+}
+
+PRIMALFURY {
+    content: url(/vanilla/Icons/Text/PrimalFury.png);
+}
+
+HERALDOFGLORY {
+    content: url(/vanilla/Icons/Text/herald_of_glory.png);
+}
+
+COSMICWANDERER {
+    content: url(/vanilla/Icons/Text/CosmicWanderer.png);
+}
+THRONESOFBLOOD {
+    content: url(/vanilla/Icons/Text/ThronesOfBlood.png);
+}
+RISEFROMRUIN {
+    content: url(/vanilla/Icons/Text/RiseFromRuin.png);
+}
+
+ELDRITCHREALMS {
+    content: url(/vanilla/Icons/Text/EldritchRealms.png);
+}
+
+WAYSOFWAR {
+    content: url(/vanilla/Icons/Text/waysofwar.png);
+}
+ARCHONPROPHECY {
+    content: url(/vanilla/Icons/Text/ArchonProphecy.png);
+}
+
+/* ///////////////////////////////DLC TAGS */
+renown {
+    max-width: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/renown.png);
+    position: relative;
+}
+
+influence {
+    max-width: 25px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/imperium.png);
+    position: relative;
+}
+
+food {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/food.png);
+    position: relative;
+}
+
+caststrategic {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/strategiccombatpoints.png);
+    position: relative;
+}
+
+optactical {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/tacticalcombatpoints.png);
+    position: relative;
+}
+
+casttactical {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/tacticalcombatpoints.png);
+    position: relative;
+}
+
+/*unittypes*/
+
+unitSupport,
+unitBattleMage,
+unitShield,
+unitPolearm,
+unitRanged,
+unitFighter,
+unitMagicFighter,
+unitScout,
+unitMythic,
+unitSkirmisher,
+unitShock,
+unitTower,
+unitSiegecraft,
+unitCivilian,
+unitCavalry,
+unitPlant,
+unitConstruct,
+unitFey,unitAnimal, unitSettler, unitDragon {
+   width: 20px;
+    height: 20px;
+    top: 3px;
+    position: relative;
+    object-fit: contain;
+}
+
+unitSupport {
+    content: url(/vanilla/Icons/Text/support_unit.png);
+}
+
+unitBattleMage {
+    content: url(/vanilla/Icons/Text/battle_mage_unit.png);
+}
+
+unitShield {
+    content: url(/vanilla/Icons/Text/shield_unit.png);
+}
+
+unitPolearm {
+    content: url(/vanilla/Icons/Text/polearm_unit.png);
+}
+
+unitRanged {
+    content: url(/vanilla/Icons/Text/ranged_unit.png);
+}
+
+unitFighter {
+    content: url(/vanilla/Icons/Text/fighter_unit.png);
+}
+
+unitMagicFighter {
+    content: url(/vanilla/Icons/Text/magic_fighter_unit.png);
+}
+
+unitScout {
+    content: url(/vanilla/Icons/Text/scout_unit.png);
+}
+
+unitMythic {
+    content: url(/vanilla/Icons/Text/mythic_unit.png);
+}
+
+unitSkirmisher {
+    content: url(/vanilla/Icons/Text/skirmisher_unit.png);
+}
+
+unitShock {
+    content: url(/vanilla/Icons/Text/shock_unit.png);
+}
+
+unitTower {
+    content: url(/vanilla/Icons/Text/tower.png);
+}
+unitSettler{
+     content: url(/vanilla/Icons/Text/settler.png);
+}
+
+unitSiegecraft {
+    content: url(/vanilla/Icons/Text/siegecraft.png);
+}
+
+unitCivilian {
+    content: url(/vanilla/Icons/Interface/Header/civilian.png);
+}
+
+unitCavalry {
+    content: url(/vanilla/Icons/Interface/Header/cavalry.png);
+}
+
+unitPlant {
+    content: url(/vanilla/Icons/Interface/Header/plant.png);
+}
+
+unitConstruct {
+    content: url(/vanilla/Icons/Interface/Header/construct.png);
+}
+
+unitFey {
+    content: url(/vanilla/Icons/Interface/Header/fey.png);
+}
+unitDragon {
+    content: url(/vanilla/Icons/Interface/Header/dragon.png);
+}
+
+unitAnimal {
+   
+    content: url(/vanilla/Icons/Interface/Header/animal.png);
+}
+
+knowledge {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/knowledge.png);
+    position: relative;
+}
+
+empirechaos {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/chaos.png);
+    position: relative;
+}
+
+empirenature {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/nature.png);
+    position: relative;
+}
+
+empirearcana,
+empireastral {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/astral.png);
+    position: relative;
+}
+
+empireshadow {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/shadow.png);
+    position: relative;
+}
+
+empirematter,
+empirematerium {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/materium.png);
+    position: relative;
+}
+
+empireorder {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/order.png);
+    position: relative;
+}
+
+empirechaosBig {
+    max-height: 25px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/chaos.png);
+    position: relative;
+}
+
+empirenatureBig {
+    max-height: 25px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/nature.png);
+    position: relative;
+}
+
+empirearcanaBig,
+empireastralBig {
+    max-height: 25px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/astral.png);
+    position: relative;
+}
+
+empireshadowBig {
+    max-height: 25px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/shadow.png);
+    position: relative;
+}
+
+empirematterBig,
+empiremateriumBig {
+    max-height: 25px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/materium.png);
+    position: relative;
+}
+
+empireorderBig {
+    max-height: 25px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/order.png);
+    position: relative;
+}
+
+chaos {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/chaosInv.png);
+    position: relative;
+}
+
+nature {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/natureInv.png);
+    position: relative;
+}
+
+arcana {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/astralInv.png);
+    position: relative;
+}
+
+shadow {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/shadowInv.png);
+    position: relative;
+}
+
+matter {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/materiumInv.png);
+    position: relative;
+}
+
+order {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/orderInv.png);
+    position: relative;
+}
+
+general {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/EmpireProgressionIcons/general.png);
+    position: relative;
+}
+
+garrison {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/fortification.png);
+    position: relative;
+}
+
+structureprod {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/production.png);
+    position: relative;
+}
+
+embalmedsacrifice {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/embalmedSacrifice.png);
+    position: relative;
+}
+
+goodrelation {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/goodrelations.png);
+    position: relative;
+}
+
+minorcity {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/free_city.png);
+    position: relative;
+}
+
+allegiance {
+    max-width: 20px;
+    top: 2px;
+    content: url(/vanilla/Icons/Text/allegiance.png);
+    position: relative;
+}
+
+reputation8 {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/puregood.png);
+    position: relative;
+}
+
+reputation7 {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/mostlyGood.png);
+    position: relative;
+}
+reputation6,
+goodact {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/good.png);
+    position: relative;
+}
+reputation5 {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/slightlyGood.png);
+    position: relative;
+}
+
+reputation4 {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/neutral.png);
+    position: relative;
+}
+
+reputation2,
+reputation1,
+evilact {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/evil.png);
+    position: relative;
+}
+
+reputation0 {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/pureEvil.png);
+    position: relative;
+}
+
+forester {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/forester.png);
+    position: relative;
+}
+
+farm {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/farm.png);
+    position: relative;
+}
+
+farms {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/farm.png);
+    position: relative;
+}
+
+conduit {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/conduit.png);
+    position: relative;
+}
+
+hut {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/hut.png);
+    position: relative;
+}
+
+mine {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/mine.png);
+    position: relative;
+}
+
+fishery {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/fishery.png);
+    position: relative;
+}
+
+quarry {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/quarry.png);
+    position: relative;
+}
+
+researchpost {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/researchpost.png);
+    position: relative;
+}
+
+teleporter {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/teleporter.png);
+    position: relative;
+}
+
+magicvictory {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/magicvictory.png);
+    position: relative;
+}
+landmark {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/Landmark_small.png);
+    position: relative;
+}
+ancientwonder {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/ancientwonder.png);
+    position: relative;
+}
+quest {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/quest.png);
+    position: relative;
+}
+
+bronzewonder {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/bronze.png);
+    position: relative;
+}
+
+silverwonder {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/silver.png);
+    position: relative;
+}
+
+goldwonder {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/goldWonder.png);
+    position: relative;
+}
+
+hero {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/hero.png);
+    position: relative;
+}
+
+siegehealthdamage {
+    max-width: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/siegehealth.png);
+    position: relative;
+}
+
+pantheon {
+    max-width: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/pantheon.png);
+    position: relative;
+}
+
+dragondawn {
+    max-width: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/DragonDawn.png);
+    position: relative;
+}
+
+mountSpecial {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/MountInteraction.png);
+    position: relative;
+}
+
+ash_sabertooth {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/primal_ash_sabertooth.png);
+    position: relative;
+}
+
+dune_serpent {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/primal_dune_serpent.png);
+    position: relative;
+}
+
+glacial_mammoth {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/primal_glacial_mammoth.png);
+    position: relative;
+}
+
+mire_crocodile {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/primal_mire_crocodile.png);
+    position: relative;
+}
+
+storm_crow {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/primal_storm_crow.png);
+    position: relative;
+}
+
+sylvan_wolf {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/primal_sylvan_wolf.png);
+    position: relative;
+}
+
+tunneling_spider {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/primal_tunneling_spider.png);
+    position: relative;
+}
+
+attunement {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/attunement.png);
+    position: relative;
+}
+monarchy {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/monarchy.png);
+    position: relative;
+}
+aristocracy {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/aristocracy.png);
+    position: relative;
+}
+
+harmony {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/harmony.png);
+    position: relative;
+}
+strife {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/strife.png);
+    position: relative;
+}
+righteousness {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/righteousness.png);
+    position: relative;
+}
+
+potential {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/potential.png);
+    position: relative;
+}
+
+summoning {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/summoning.png);
+    position: relative;
+}
+
+thralls {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/thrall.png);
+    position: relative;
+}
+
+rally {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/rally.png);
+    position: relative;
+}
+
+once {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/once.png);
+    position: relative;
+}
+
+tierI {
+    max-width: 20px;
+    top: -2px;
+    content: url(/vanilla/Icons/Text/tierI.png);
+    position: relative;
+}
+
+tierII {
+    max-width: 20px;
+    top: -2px;
+    content: url(/vanilla/Icons/Text/tierII.png);
+    position: relative;
+}
+
+tierIII {
+    max-width: 20px;
+    top: -2px;
+    content: url(/vanilla/Icons/Text/tierIII.png);
+    position: relative;
+}
+
+tierIV {
+    max-width: 20px;
+    top: -2px;
+    content: url(/vanilla/Icons/Text/tierIV.png);
+    position: relative;
+}
+
+tierV {
+    max-width: 20px;
+    top: -2px;
+    content: url(/vanilla/Icons/Text/tierV.png);
+    position: relative;
+}
+ench {
+    max-height: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/transform.png);
+    position: relative;
+}
+other {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/other.png);
+    position: relative;
+}
+unit {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/unit.png);
+    position: relative;
+}
+
+structure {
+    max-width: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/city.png);
+    position: relative;
+}
+
+medal_soldier {
+    max-width: 20px;
+    top: 8px;
+    content: url(/vanilla/Icons/Text/medal_soldier.png);
+    position: relative;
+}
+
+medal_veteran {
+    max-width: 20px;
+    top: 8px;
+    content: url(/vanilla/Icons/Text/medal_veteran.png);
+    position: relative;
+}
+
+medal_elite {
+    max-width: 20px;
+    top: 8px;
+    content: url(/vanilla/Icons/Text/medal_elite.png);
+    position: relative;
+}
+
+medal_champion,
+medalgold {
+    max-width: 20px;
+    top: 8px;
+    content: url(/vanilla/Icons/Text/medal_champion.png);
+    position: relative;
+}
+
+/*small*/
+
+champion {
+    max-width: 12px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/medal_champion.png);
+    position: relative;
+}
+
+medal_legend {
+    max-width: 20px;
+    top: 8px;
+    content: url(/vanilla/Icons/Text/medal_legend.png);
+    position: relative;
+}
+
+bindingessence {
+    max-width: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/bindingEssence.png);
+    position: relative;
+}
+
+bindingfragments {
+    max-width: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/bindingFragments.png);
+    position: relative;
+}
+
+astralechoes {
+    max-width: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/astral_echoes.png);
+    position: relative;
+}
+
+xp {
+    max-height: 15px;
+    top: 2px;
+    content: url(/vanilla/Icons/Text/xp.png);
+    position: relative;
+}
+
+favourite {
+    max-height: 15px;
+    top: 2px;
+    content: url(/vanilla/Icons/Interface/fav.png);
+    position: relative;
+}
+
+gold {
+    max-height: 20px;
+    top: 3px;
+    left: 3px;
+    content: url(/vanilla/Icons/Text/gold.png);
+    position: relative;
+}
+
+whisperingstone {
+    max-height: 20px;
+    top: 3px;
+    left: 3px;
+    content: url(/vanilla/Icons/Text/whisperingstone.png);
+    position: relative;
+}
+
+mana {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/mana.png);
+    position: relative;
+}
+
+unitprod,
+draft {
+    max-height: 20px;
+    content: url(/vanilla/Icons/Text/draft.png);
+    position: relative;
+}
+
+population {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/population.png);
+    position: relative;
+}
+
+production {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/production.png);
+    position: relative;
+}
+
+research {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/knowledge.png);
+    position: relative;
+}
+
+damageblight {
+    max-height: 20px;
+    top: 4px;
+    position: relative;
+    content: url(/vanilla/Icons/Text/blight.png);
+}
+
+damagefire {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/fire.png);
+    position: relative;
+}
+
+damagespirit {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/spirit.png);
+    position: relative;
+}
+
+damagelightning {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/shock.png);
+    position: relative;
+}
+
+DamagePhysical {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/physical.png);
+    position: relative;
+}
+
+damagefrost {
+    max-height: 20px;
+    top: 5px;
+    content: url(/vanilla/Icons/Text/ice.png);
+    position: relative;
+}
+
+turn {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/turn.png);
+    position: relative;
+}
+
+resistance {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/resistance.png);
+    position: relative;
+}
+
+defense {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/armor.png);
+    position: relative;
+}
+
+flank {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/flank.png);
+    position: relative;
+}
+
+defensefire {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/fire_resistance.png);
+    position: relative;
+}
+
+defenselightning {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/lightning_resistance.png);
+    position: relative;
+}
+
+defenseblight {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/blight_resistance.png);
+    position: relative;
+}
+
+defensephysical {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/physical_resistance.png);
+    position: relative;
+}
+
+statuseffectresistance {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/status_resistance.png);
+    position: relative;
+}
+
+defensespirit {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/spirit_resistance.png);
+    position: relative;
+}
+
+defensefrost {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/frost_resistance.png);
+    position: relative;
+}
+
+happiness {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/happiness.png);
+    position: relative;
+}
+
+hp {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/health.png);
+    position: relative;
+}
+
+temphp {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/tempHitpoints.png);
+    position: relative;
+}
+
+mp {
+    max-height: 15px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/mp.png);
+    position: relative;
+}
+
+accuracy {
+    max-width: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/accuracy.png);
+    position: relative;
+}
+
+range {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/range.png);
+    position: relative;
+}
+
+souls {
+    max-height: 20px;
+    top: 3px;
+    content: url(/vanilla/Icons/Text/souls.png);
+    position: relative;
+}
+
+repeatingAction {
+    max-width: 40px;
+    content: url(/vanilla/Icons/Text/repeating.png);
+    position: relative;
+    padding-left: 10px;
+    top: 6px;
+}
+
+singleUseAction {
+    max-width: 40px;
+    max-height: 20px;
+    content: url(/vanilla/Icons/Text/single_action.png);
+    position: relative;
+    padding-left: 10px;
+    top: 6px;
+}
+
+singleAction {
+    max-width: 40px;
+    content: url(/vanilla/Icons/Text/single_action.png);
+    position: relative;
+    padding-left: 10px;
+    top: 6px;
+}
+
+fullAction {
+    max-width: 40px;
+    content: url(/vanilla/Icons/Text/full_action.png);
+    position: relative;
+    padding-left: 10px;
+    top: 6px;
+}
+
+freeAction {
+    max-width: 40px;
+    content: url(/vanilla/Icons/Text/free_action.png);
+    position: relative;
+    padding-left: 10px;
+    top: 6px;
+}
+
+leaveoneaction {
+    max-width: 40px;
+    content: url(/vanilla/Icons/Text/leave_one.png);
+    position: relative;
+    padding-left: 10px;
+    top: 6px;
+}
+
+fullActionContinue {
+    max-width: 40px;
+    content: url(/vanilla/Icons/Text/full_action_continue.png);
+    position: relative;
+    padding-left: 10px;
+    top: 6px;
+}
+
+transformation {
+    max-width: 15px;
+    content: url(/vanilla/Icons/Text/spelltype_transformation.png);
+    position: relative;
+    top: 3px;
+}
+
+terraforming {
+    max-width: 15px;
+    content: url(/vanilla/Icons/Text/spelltype_terraforming.png);
+    position: relative;
+    top: 3px;
+}
+worldspell {
+    max-width: 15px;
+    content: url(/vanilla/Icons/Text/spelltype_world.png);
+    position: relative;
+    top: 3px;
+}
+cityspell {
+    max-width: 15px;
+    content: url(/vanilla/Icons/Text/spelltype_city.png);
+    position: relative;
+    top: 3px;
+}
+armyspell {
+    max-width: 15px;
+    content: url(/vanilla/Icons/Text/spelltype_army.png);
+    position: relative;
+    top: 3px;
+}
+summonspell {
+    max-width: 15px;
+    content: url(/vanilla/Icons/Text/spelltype_summon.png);
+    position: relative;
+    top: 3px;
+}

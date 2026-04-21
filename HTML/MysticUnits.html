@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-CC3NE8PT7K"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag() {
+                dataLayer.push(arguments);
+            }
+            gtag("js", new Date());
+
+            gtag("config", "G-CC3NE8PT7K");
+        </script>
+        <link rel="shortcut icon" type="image/x-icon" href="/vanilla/favicon.ico" />
+        <link rel="stylesheet" type="text/css" href="/vanilla/Style/style.css" />
+        <meta charset="UTF-8" />
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+
+        <script src="/vanilla/Data/Init.js"></script>
+        <script>
+            const listOfSub = ["Attunement", "Potential", "Summoning"];
+            const listOfIcons = ["mystic_school_of_"];
+             const listOfName = ["School of "];
+          
+
+            function HandlePage() {
+                // create parts
+                CreateParts(listOfSub, listOfIcons, listOfName);
+
+                listOfSub.forEach((sub, i) => {
+                    const unitarray = GetCultureUnitsOf("Mystic", sub);
+                    SetButtonsAndDivs(unitarray, "buttonHolder" + i, "unit", "dataHolder" + i, sub);
+                });
+                SetLevelUpStuff();
+            }
+        </script>
+
+        <title>Age of Wonders 4 Database - Mystic Units</title>
+    </head>
+
+    <body>
+        <div id="header"></div>
+
+        <div class="textblocktitle">
+            <img src="/vanilla/Icons/Text/mystic.png" height="40px" /> Mystic Culture Units
+            <img src="/vanilla/Icons/Text/mystic.png" height="40px" />
+        </div>
+
+        <div id="presetPoint"></div>
+    </body>
+</html>
+<footer>
+    <br />
+    <br />
+</footer>

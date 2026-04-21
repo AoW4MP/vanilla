@@ -1,0 +1,1365 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <!-- Google tag (gtag.js) -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=G-CC3NE8PT7K"></script>
+        <script>
+            window.dataLayer = window.dataLayer || [];
+            function gtag() {
+                dataLayer.push(arguments);
+            }
+            gtag("js", new Date());
+            gtag("config", "G-CC3NE8PT7K");
+        </script>
+
+        <link rel="shortcut icon" type="image/x-icon" href="/vanilla/favicon.ico" />
+        <link rel="stylesheet" type="text/css" href="/vanilla/Style/style.css" />
+        <link rel="stylesheet" type="text/css" href="/vanilla/Style/icons.css" />
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+        <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.4/jquery.min.js"></script>
+        <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
+        <script src="/vanilla/Data/Init.js"></script>
+
+        <title>Age of Wonders 4 Database - Draft Lobby</title>
+
+        <style>
+            .draft-wrap {
+                color: white;
+                max-width: 1280px;
+                margin: 0 auto;
+                padding: 10px;
+            }
+
+            .draft-container {
+                display: inline-block;
+                position: relative;
+                width: 100%;
+                box-sizing: border-box;
+                background-image: url(/vanilla/Icons/tooltipBG.png);
+                background-size: cover;
+                font-size: 13px;
+                color: #bbcdf6;
+                text-align: left;
+                border-width: 10px;
+                border-style: solid;
+                border-image: url(/vanilla/Icons/9slicetooltip.png);
+                border-image-slice: 10 10 10 10;
+                text-shadow: 2px 2px black;
+                padding: 16px;
+                margin-bottom: 16px;
+            }
+
+            .draft-section-title {
+                font-family: "Decorative";
+                color: burlywood;
+                font-size: 18px;
+                margin-bottom: 8px;
+            }
+
+            .draft-help {
+                color: #c2c2c2;
+                font-size: 12px;
+                margin-bottom: 8px;
+                font-style: italic;
+            }
+
+            .row {
+                display: flex;
+                gap: 10px;
+                align-items: center;
+                flex-wrap: wrap;
+                margin: 6px 0;
+            }
+
+            .col {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            .hidden {
+                display: none !important;
+            }
+
+            .share-link-input {
+                min-width: 420px;
+                max-width: 600px;
+                flex: 1;
+            }
+
+            .preset-dropdown,
+            .player-name-input {
+                min-width: 220px;
+            }
+
+            .preset-json-area {
+                width: 100%;
+                min-height: 160px;
+                box-sizing: border-box;
+                background-color: #111;
+                color: #fff;
+                border: 1px solid #555;
+                padding: 8px;
+                font-family: monospace;
+                font-size: 12px;
+            }
+
+            .player-list {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+                margin-top: 8px;
+            }
+
+            .player-row {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                padding: 6px 10px;
+                border-width: 3px;
+                border-style: solid;
+                border-image: url(/vanilla/Icons/9slicetooltip.png);
+                border-image-slice: 10 10 10 10;
+                border-image-repeat: stretch;
+                background-color: #111;
+            }
+
+            .player-row.active {
+                background-color: #2a3f5a;
+                box-shadow: 0 0 10px #4aa3df inset;
+            }
+
+            .player-row.you {
+                color: #ffeaa7;
+            }
+
+            .player-badge {
+                padding: 2px 6px;
+                background-color: #4b1d63;
+                border-radius: 3px;
+                font-size: 11px;
+            }
+
+            .turn-banner {
+                padding: 10px 14px;
+                border-width: 5px;
+                border-style: solid;
+                border-image: url(/vanilla/Icons/9slicetooltip.png);
+                border-image-slice: 10 10 10 10;
+                font-size: 18px;
+                font-family: "Decorative";
+                text-align: center;
+                margin-bottom: 12px;
+            }
+
+            .turn-pick {
+                background-color: #1d4b1d;
+                color: #baffb5;
+            }
+
+            .turn-ban {
+                background-color: #4b1d1d;
+                color: #ffb5b5;
+            }
+
+            .turn-wait {
+                background-color: #333;
+                color: #c2c2c2;
+            }
+
+            .pool-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 8px;
+                margin-top: 8px;
+            }
+
+            .pool-tile {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                padding: 6px 8px;
+                background-color: #111;
+                color: #fff;
+                border-width: 3px;
+                border-style: solid;
+                border-image: url(/vanilla/Icons/9slicetooltip.png);
+                border-image-slice: 10 10 10 10;
+                border-image-repeat: stretch;
+                cursor: pointer;
+                font-size: 13px;
+                min-height: 42px;
+            }
+
+            .pool-tile:hover:not(.disabled) {
+                filter: brightness(150%);
+            }
+
+            .pool-tile img {
+                width: 32px;
+                height: 32px;
+                flex-shrink: 0;
+            }
+
+            .pool-tile.disabled {
+                opacity: 0.35;
+                cursor: not-allowed;
+                filter: grayscale(80%);
+            }
+
+            .pool-tile.banned {
+                background-color: #3a1414;
+                color: #ff9090;
+                text-decoration: line-through;
+            }
+
+            .pool-tile.picked {
+                background-color: #143a14;
+                color: #90ff90;
+            }
+
+            .draft-boards {
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+                gap: 12px;
+                margin-top: 12px;
+            }
+
+            .draft-board {
+                border-width: 3px;
+                border-style: solid;
+                border-image: url(/vanilla/Icons/9slicetooltip.png);
+                border-image-slice: 10 10 10 10;
+                border-image-repeat: stretch;
+                background-color: #0a0a0a;
+                padding: 10px;
+                color: white;
+            }
+
+            .draft-board h3 {
+                margin: 0 0 6px 0;
+                font-family: "Decorative";
+                color: burlywood;
+                font-size: 16px;
+            }
+
+            .draft-board .slot {
+                display: flex;
+                align-items: center;
+                gap: 6px;
+                padding: 4px 6px;
+                margin: 2px 0;
+                background-color: #1a1a1a;
+                min-height: 32px;
+                font-size: 12px;
+            }
+
+            .draft-board .slot img {
+                width: 24px;
+                height: 24px;
+            }
+
+            .slot-empty {
+                color: #666;
+                font-style: italic;
+            }
+
+            .slot-ban {
+                color: #ff9090;
+                text-decoration: line-through;
+            }
+
+            .slot-pick {
+                color: #baffb5;
+            }
+
+            .category-label {
+                display: inline-block;
+                font-size: 10px;
+                padding: 1px 4px;
+                background-color: #333;
+                color: #ccc;
+                border-radius: 2px;
+                margin-right: 4px;
+                text-transform: uppercase;
+            }
+
+            .status-dot {
+                display: inline-block;
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                margin-right: 4px;
+            }
+
+            .status-dot.ok {
+                background: #4caf50;
+            }
+
+            .status-dot.bad {
+                background: #e74c3c;
+            }
+
+            .status-dot.pending {
+                background: #f1c40f;
+            }
+
+            .log-box {
+                max-height: 140px;
+                overflow-y: auto;
+                background-color: #0a0a0a;
+                padding: 6px;
+                font-size: 12px;
+                font-family: monospace;
+                color: #bbb;
+                border: 1px solid #333;
+            }
+
+            .log-box .log-line {
+                padding: 1px 0;
+            }
+
+            .log-box .log-pick {
+                color: #baffb5;
+            }
+
+            .log-box .log-ban {
+                color: #ff9090;
+            }
+
+            .log-box .log-info {
+                color: #9bd2ff;
+            }
+
+            .tabs {
+                display: flex;
+                gap: 4px;
+                margin-bottom: 8px;
+                margin-top: 8px;
+            }
+
+            .tab-btn {
+                padding: 4px 10px;
+                background-color: #222;
+                color: #ccc;
+                border: 1px solid #444;
+                cursor: pointer;
+                font-size: 12px;
+            }
+
+            .tab-btn.active {
+                background-color: #4b1d63;
+                color: #fff;
+            }
+
+            .small-btn {
+                padding: 4px 10px;
+                background-color: #4b1d63;
+                color: #fff;
+                border: none;
+                cursor: pointer;
+                font-size: 12px;
+            }
+
+            .small-btn:hover {
+                filter: brightness(130%);
+            }
+
+            .small-btn:disabled {
+                opacity: 0.4;
+                cursor: not-allowed;
+            }
+        </style>
+
+        <script>
+            // ============================================================
+            // Draft Lobby
+            //
+            // Host/player flow (P2P via PeerJS — no backend required):
+            //   1. Host clicks Create Lobby -> generates a peer id,
+            //      displays a shareable link (?lobby=<peerId>).
+            //   2. Players open the link -> their peer connects to the
+            //      host's peer id. Host treats itself as player 0, joiners
+            //      become player 1, 2, ... up to preset.players.
+            //   3. Host chooses a JSON preset (picks/bans sequence).
+            //      When everyone is ready, host starts the draft.
+            //   4. Picks/bans are submitted to the host, host validates,
+            //      applies to authoritative state, and broadcasts state
+            //      to all players.
+            //
+            // Preset JSON schema:
+            //   {
+            //     "name": "Standard 2P Ban/Pick",
+            //     "players": 2,
+            //     "sequence": [
+            //       { "action": "ban",  "category": "faction", "player": 0 },
+            //       { "action": "pick", "category": "faction", "player": 1 },
+            //       ...
+            //     ]
+            //   }
+            //
+            //   action:   "ban" | "pick"
+            //   category: "faction" (Culture) | "society" (Society Trait) | "ruler" (Ruler Origin)
+            //   player:   0..players-1 (optional; defaults to alternating by index)
+            // ============================================================
+
+            const DRAFT_CATEGORIES = {
+                faction: {
+                    label: "Faction",
+                    plural: "Factions",
+                    iconPath: "/vanilla/Icons/FactionCreation/"
+                },
+                society: {
+                    label: "Society Trait",
+                    plural: "Society Traits",
+                    iconPath: "/vanilla/Icons/TraitIcons/"
+                },
+                ruler: {
+                    label: "Ruler Type",
+                    plural: "Ruler Types",
+                    iconPath: "/vanilla/Icons/FactionCreation/"
+                }
+            };
+
+            const DEFAULT_PRESETS = {
+                "Standard 1v1 (Ban + Pick)": {
+                    name: "Standard 1v1 (Ban + Pick)",
+                    players: 2,
+                    sequence: [
+                        { action: "ban", category: "faction", player: 0 },
+                        { action: "ban", category: "faction", player: 1 },
+                        { action: "ban", category: "society", player: 0 },
+                        { action: "ban", category: "society", player: 1 },
+                        { action: "pick", category: "faction", player: 0 },
+                        { action: "pick", category: "faction", player: 1 },
+                        { action: "pick", category: "society", player: 0 },
+                        { action: "pick", category: "society", player: 1 },
+                        { action: "pick", category: "ruler", player: 0 },
+                        { action: "pick", category: "ruler", player: 1 }
+                    ]
+                },
+                "1v1 Picks Only": {
+                    name: "1v1 Picks Only",
+                    players: 2,
+                    sequence: [
+                        { action: "pick", category: "faction", player: 0 },
+                        { action: "pick", category: "faction", player: 1 },
+                        { action: "pick", category: "society", player: 0 },
+                        { action: "pick", category: "society", player: 1 },
+                        { action: "pick", category: "ruler", player: 0 },
+                        { action: "pick", category: "ruler", player: 1 }
+                    ]
+                },
+                "4-Player Snake Draft": {
+                    name: "4-Player Snake Draft",
+                    players: 4,
+                    sequence: [
+                        { action: "ban", category: "faction", player: 0 },
+                        { action: "ban", category: "faction", player: 1 },
+                        { action: "ban", category: "faction", player: 2 },
+                        { action: "ban", category: "faction", player: 3 },
+                        { action: "pick", category: "faction", player: 0 },
+                        { action: "pick", category: "faction", player: 1 },
+                        { action: "pick", category: "faction", player: 2 },
+                        { action: "pick", category: "faction", player: 3 },
+                        { action: "pick", category: "society", player: 3 },
+                        { action: "pick", category: "society", player: 2 },
+                        { action: "pick", category: "society", player: 1 },
+                        { action: "pick", category: "society", player: 0 },
+                        { action: "pick", category: "ruler", player: 0 },
+                        { action: "pick", category: "ruler", player: 1 },
+                        { action: "pick", category: "ruler", player: 2 },
+                        { action: "pick", category: "ruler", player: 3 }
+                    ]
+                }
+            };
+
+            // ============================================================
+            // Local client state
+            //    isHost:   true if this tab created the lobby
+            //    myPlayerIndex: which slot this tab controls (0 = host)
+            //    peer:     PeerJS peer object
+            //    connections: for host, Map of playerIndex -> DataConnection
+            //    hostConn: for players, single connection to host
+            //    state:    authoritative lobby/draft state (host owns it;
+            //              players receive snapshots)
+            // ============================================================
+            let isHost = false;
+            let myPlayerIndex = -1;
+            let myName = "";
+            let peer = null;
+            let hostPeerId = null;
+            let connections = new Map(); // host: peerId -> conn
+            let hostConn = null; // player: conn to host
+            let state = makeEmptyState();
+
+            function makeEmptyState() {
+                return {
+                    phase: "lobby", // 'lobby' | 'draft' | 'done'
+                    presetName: "Standard 1v1 (Ban + Pick)",
+                    preset: DEFAULT_PRESETS["Standard 1v1 (Ban + Pick)"],
+                    players: [], // [{ peerId, name, index }]
+                    step: 0,
+                    history: [], // [{ step, action, category, player, entryId }]
+                    banned: { faction: [], society: [], ruler: [] }, // entry ids
+                    picks: {} // playerIndex -> { faction:[], society:[], ruler:[] }
+                };
+            }
+
+            // ============================================================
+            // Entry point invoked by Init.js after all JSON data is loaded.
+            // ============================================================
+            function HandlePage() {
+                const urlLobby = new URLSearchParams(window.location.search).get("lobby");
+                const presetOptions = Object.keys(DEFAULT_PRESETS)
+                    .map((k) => `<option value="${k}">${k}</option>`)
+                    .join("");
+                document.getElementById("presetSelect").innerHTML = presetOptions;
+                const ps2 = document.getElementById("presetSelect2");
+                if (ps2) ps2.innerHTML = presetOptions;
+
+                document.getElementById("presetJson").value = JSON.stringify(
+                    DEFAULT_PRESETS["Standard 1v1 (Ban + Pick)"],
+                    null,
+                    2
+                );
+
+                if (urlLobby) {
+                    // Joining an existing lobby
+                    document.getElementById("joinLobbyIdInput").value = urlLobby;
+                    showSection("joinSection");
+                    log("Detected lobby id in URL: " + urlLobby, "info");
+                } else {
+                    showSection("landingSection");
+                }
+            }
+
+            function showSection(id) {
+                ["landingSection", "joinSection", "hostSection", "draftSection"].forEach((s) => {
+                    const el = document.getElementById(s);
+                    if (el) el.classList.toggle("hidden", s !== id);
+                });
+            }
+
+            // ============================================================
+            // Data lookup helpers
+            // ============================================================
+            function getPool(category) {
+                switch (category) {
+                    case "faction":
+                        return (jsonFactionCreation || []).filter((e) => e.type === "Culture");
+                    case "society":
+                        return (jsonFactionCreation2 || []).filter(
+                            (e) => e.type === "society" && e.enabled === true
+                        );
+                    case "ruler":
+                        return (jsonFactionCreation || []).filter((e) => e.type === "Ruler Origin");
+                    default:
+                        return [];
+                }
+            }
+
+            function lookupEntry(category, id) {
+                return getPool(category).find((e) => e.id === id);
+            }
+
+            function iconUrlFor(category, entry) {
+                if (!entry) return "";
+                const path = DRAFT_CATEGORIES[category].iconPath;
+                return `${path}${entry.icon}.png`;
+            }
+
+            // ============================================================
+            // Peer setup
+            // ============================================================
+            function createPeer() {
+                if (peer) {
+                    try {
+                        peer.destroy();
+                    } catch (e) {}
+                    peer = null;
+                }
+                // undefined => random id from PeerJS broker
+                peer = new Peer(undefined, { debug: 1 });
+                return peer;
+            }
+
+            function hostCreateLobby() {
+                myName = (document.getElementById("hostName").value || "Host").trim();
+                if (!myName) myName = "Host";
+                isHost = true;
+                myPlayerIndex = 0;
+
+                state = makeEmptyState();
+                state.players = [{ peerId: "HOST", name: myName, index: 0 }];
+                state.picks[0] = { faction: [], society: [], ruler: [] };
+                const presetName = document.getElementById("presetSelect").value;
+                applyPreset(presetName);
+
+                createPeer();
+                peer.on("open", (id) => {
+                    hostPeerId = id;
+                    const url = buildShareUrl(id);
+                    document.getElementById("shareLink").value = url;
+                    document.getElementById("hostLobbyId").textContent = id;
+                    showSection("hostSection");
+                    log("Lobby open. Share the link to invite players.", "info");
+                    renderHost();
+                });
+                peer.on("error", (err) => {
+                    log("Peer error: " + err, "bad");
+                });
+                peer.on("connection", (conn) => {
+                    conn.on("open", () => {
+                        handleIncomingConnection(conn);
+                    });
+                });
+            }
+
+            function handleIncomingConnection(conn) {
+                if (state.phase !== "lobby") {
+                    conn.send({ type: "error", message: "Draft already started." });
+                    setTimeout(() => conn.close(), 50);
+                    return;
+                }
+                if (state.players.length >= state.preset.players) {
+                    conn.send({ type: "error", message: "Lobby is full." });
+                    setTimeout(() => conn.close(), 50);
+                    return;
+                }
+
+                const newIndex = state.players.length;
+                const playerEntry = { peerId: conn.peer, name: "Player " + (newIndex + 1), index: newIndex };
+                state.players.push(playerEntry);
+                state.picks[newIndex] = { faction: [], society: [], ruler: [] };
+                connections.set(conn.peer, conn);
+
+                conn.on("data", (msg) => handleMessageFromPlayer(conn, msg));
+                conn.on("close", () => handlePlayerDisconnect(conn.peer));
+
+                conn.send({ type: "welcome", playerIndex: newIndex });
+                broadcastState();
+                renderHost();
+                log(`${playerEntry.name} connected.`, "info");
+            }
+
+            function handlePlayerDisconnect(peerId) {
+                const existing = state.players.find((p) => p.peerId === peerId);
+                if (!existing) return;
+                connections.delete(peerId);
+                if (state.phase === "lobby") {
+                    // remove the player entirely; reindex
+                    state.players = state.players.filter((p) => p.peerId !== peerId);
+                    state.players.forEach((p, i) => (p.index = i));
+                    state.picks = { 0: { faction: [], society: [], ruler: [] } };
+                    state.players.forEach((p) => {
+                        if (!state.picks[p.index]) state.picks[p.index] = { faction: [], society: [], ruler: [] };
+                    });
+                    broadcastState();
+                    renderHost();
+                    log(`${existing.name} left the lobby.`, "info");
+                } else {
+                    log(`${existing.name} disconnected (draft continues).`, "info");
+                }
+            }
+
+            function handleMessageFromPlayer(conn, msg) {
+                if (!msg || typeof msg !== "object") return;
+                const player = state.players.find((p) => p.peerId === conn.peer);
+                if (!player) return;
+                if (msg.type === "setName") {
+                    player.name = ("" + (msg.name || "")).slice(0, 24) || player.name;
+                    broadcastState();
+                    renderHost();
+                } else if (msg.type === "action") {
+                    attemptAction(player.index, msg.action, msg.category, msg.entryId);
+                }
+            }
+
+            function broadcastState() {
+                const payload = { type: "state", state: state };
+                connections.forEach((c) => {
+                    try {
+                        c.send(payload);
+                    } catch (e) {}
+                });
+            }
+
+            function buildShareUrl(lobbyId) {
+                const base = window.location.href.split("?")[0];
+                return base + "?lobby=" + encodeURIComponent(lobbyId);
+            }
+
+            // ============================================================
+            // Player (joiner) flow
+            // ============================================================
+            function joinLobby() {
+                myName = (document.getElementById("joinName").value || "").trim();
+                if (!myName) myName = "Player";
+                const lobbyId = document.getElementById("joinLobbyIdInput").value.trim();
+                if (!lobbyId) {
+                    alert("Enter a lobby id (or open the share link).");
+                    return;
+                }
+                isHost = false;
+                hostPeerId = lobbyId;
+
+                createPeer();
+                peer.on("open", (id) => {
+                    log("Connecting to lobby " + lobbyId + "...", "info");
+                    hostConn = peer.connect(lobbyId, { reliable: true });
+                    hostConn.on("open", () => {
+                        hostConn.send({ type: "setName", name: myName });
+                        showSection("hostSection"); // lobby view (same for host/player)
+                        document.getElementById("hostLobbyId").textContent = lobbyId;
+                        document.getElementById("hostOnlyControls").classList.add("hidden");
+                        document.getElementById("shareRow").classList.add("hidden");
+                        renderHost();
+                    });
+                    hostConn.on("data", (msg) => handleMessageFromHost(msg));
+                    hostConn.on("close", () => {
+                        log("Host connection closed.", "bad");
+                    });
+                });
+                peer.on("error", (err) => {
+                    log("Peer error: " + err, "bad");
+                    alert("Connection error: " + err);
+                });
+            }
+
+            function handleMessageFromHost(msg) {
+                if (!msg || typeof msg !== "object") return;
+                if (msg.type === "welcome") {
+                    myPlayerIndex = msg.playerIndex;
+                    log("Joined as Player " + (myPlayerIndex + 1), "info");
+                } else if (msg.type === "state") {
+                    const prevPhase = state.phase;
+                    state = msg.state;
+                    if (state.phase === "draft") {
+                        if (prevPhase !== "draft") {
+                            showSection("draftSection");
+                        }
+                        renderDraft();
+                    } else if (state.phase === "done") {
+                        renderDraft();
+                    } else {
+                        renderHost();
+                    }
+                } else if (msg.type === "error") {
+                    alert("Host says: " + msg.message);
+                }
+            }
+
+            function playerSendAction(action, category, entryId) {
+                if (isHost) {
+                    attemptAction(0, action, category, entryId);
+                } else if (hostConn && hostConn.open) {
+                    hostConn.send({ type: "action", action, category, entryId });
+                }
+            }
+
+            function playerSendName() {
+                const name = (document.getElementById("lobbyNameInput").value || "").trim();
+                if (!name) return;
+                myName = name;
+                if (isHost) {
+                    state.players[0].name = name;
+                    broadcastState();
+                    renderHost();
+                } else if (hostConn && hostConn.open) {
+                    hostConn.send({ type: "setName", name });
+                }
+            }
+
+            // ============================================================
+            // Draft state machine (host-authoritative)
+            // ============================================================
+            function applyPreset(name, customJson) {
+                let preset = DEFAULT_PRESETS[name];
+                if (customJson) {
+                    try {
+                        preset = JSON.parse(customJson);
+                    } catch (e) {
+                        alert("Invalid preset JSON: " + e.message);
+                        return false;
+                    }
+                }
+                if (!preset || !Array.isArray(preset.sequence) || !preset.players) {
+                    alert("Preset missing players or sequence.");
+                    return false;
+                }
+                // fill in defaults
+                preset.sequence = preset.sequence.map((step, i) => ({
+                    action: step.action || step.a,
+                    category: step.category || step.c,
+                    player: typeof step.player === "number" ? step.player : (typeof step.p === "number" ? step.p : (i % preset.players))
+                }));
+                state.presetName = name;
+                state.preset = preset;
+                return true;
+            }
+
+            function hostStartDraft() {
+                if (state.players.length < state.preset.players) {
+                    if (!confirm(`Only ${state.players.length}/${state.preset.players} players connected. Start anyway?`))
+                        return;
+                }
+                state.phase = "draft";
+                state.step = 0;
+                state.history = [];
+                state.banned = { faction: [], society: [], ruler: [] };
+                state.players.forEach((p) => {
+                    state.picks[p.index] = { faction: [], society: [], ruler: [] };
+                });
+                broadcastState();
+                showSection("draftSection");
+                renderDraft();
+                log("Draft started.", "info");
+            }
+
+            function attemptAction(playerIndex, action, category, entryId) {
+                if (!isHost) return;
+                if (state.phase !== "draft") return;
+
+                const step = state.preset.sequence[state.step];
+                if (!step) return;
+                if (step.player !== playerIndex) {
+                    log(`Rejected action from player ${playerIndex + 1}: not their turn.`, "bad");
+                    return;
+                }
+                if (step.action !== action || step.category !== category) {
+                    log(`Rejected action: expected ${step.action} ${step.category}.`, "bad");
+                    return;
+                }
+
+                // availability check
+                const entry = lookupEntry(category, entryId);
+                if (!entry) return;
+                if (state.banned[category].includes(entryId)) return;
+                for (const pi in state.picks) {
+                    if (state.picks[pi][category] && state.picks[pi][category].includes(entryId)) return;
+                }
+
+                // apply
+                if (action === "ban") {
+                    state.banned[category].push(entryId);
+                } else if (action === "pick") {
+                    if (!state.picks[playerIndex]) state.picks[playerIndex] = { faction: [], society: [], ruler: [] };
+                    state.picks[playerIndex][category].push(entryId);
+                } else {
+                    return;
+                }
+
+                state.history.push({
+                    step: state.step,
+                    action,
+                    category,
+                    player: playerIndex,
+                    entryId,
+                    entryName: entry.name
+                });
+                state.step += 1;
+
+                if (state.step >= state.preset.sequence.length) {
+                    state.phase = "done";
+                    log("Draft complete.", "info");
+                }
+
+                broadcastState();
+                renderDraft();
+            }
+
+            // ============================================================
+            // Rendering — Lobby
+            // ============================================================
+            function renderHost() {
+                // preset info
+                const pname = state.preset && state.preset.name ? state.preset.name : "(no preset)";
+                document.getElementById("hostCurrentPreset").textContent = pname;
+                document.getElementById("hostCapacity").textContent =
+                    `${state.players.length} / ${state.preset.players}`;
+
+                // your name field default
+                const nameInput = document.getElementById("lobbyNameInput");
+                if (document.activeElement !== nameInput) {
+                    nameInput.value = myName || "";
+                }
+
+                // player list
+                const list = document.getElementById("playerList");
+                list.innerHTML = "";
+                const capacity = state.preset.players || 0;
+                for (let i = 0; i < capacity; i++) {
+                    const row = document.createElement("div");
+                    row.className = "player-row";
+                    const p = state.players[i];
+                    const you = p && p.index === myPlayerIndex;
+                    if (you) row.classList.add("you");
+                    if (p) {
+                        row.innerHTML =
+                            `<span class="player-badge">Player ${i + 1}</span>` +
+                            `<span class="status-dot ok"></span>` +
+                            `<span>${escapeHtml(p.name)}${you ? " (you)" : ""}</span>`;
+                    } else {
+                        row.innerHTML =
+                            `<span class="player-badge">Player ${i + 1}</span>` +
+                            `<span class="status-dot pending"></span>` +
+                            `<span style="color:#888;font-style:italic">waiting for player...</span>`;
+                    }
+                    list.appendChild(row);
+                }
+
+                // start button enabled for host only
+                const startBtn = document.getElementById("startDraftBtn");
+                if (isHost) {
+                    startBtn.disabled = state.players.length === 0;
+                    startBtn.classList.remove("hidden");
+                } else {
+                    startBtn.classList.add("hidden");
+                }
+
+                renderSequencePreview();
+            }
+
+            function renderSequencePreview() {
+                const seq = state.preset.sequence || [];
+                const el = document.getElementById("sequencePreview");
+                el.innerHTML = "";
+                seq.forEach((step, i) => {
+                    const div = document.createElement("div");
+                    div.className = "slot " + (step.action === "ban" ? "slot-ban" : "slot-pick");
+                    div.innerHTML =
+                        `<span style="min-width:24px;color:#999">#${i + 1}</span>` +
+                        `<span class="category-label">${step.action}</span>` +
+                        `<span>${DRAFT_CATEGORIES[step.category] ? DRAFT_CATEGORIES[step.category].label : step.category}</span>` +
+                        `<span style="margin-left:auto;color:#ccc">P${step.player + 1}</span>`;
+                    el.appendChild(div);
+                });
+            }
+
+            // ============================================================
+            // Rendering — Draft board
+            // ============================================================
+            function renderDraft() {
+                const seq = state.preset.sequence || [];
+                const curStep = seq[state.step];
+                const turnEl = document.getElementById("turnBanner");
+
+                if (state.phase === "done" || !curStep) {
+                    turnEl.className = "turn-banner turn-wait";
+                    turnEl.textContent = "Draft complete!";
+                    renderPool(null);
+                } else {
+                    const myTurn = curStep.player === myPlayerIndex;
+                    const activePlayer = state.players.find((p) => p.index === curStep.player);
+                    const activeName = activePlayer ? activePlayer.name : `Player ${curStep.player + 1}`;
+                    const catLabel = DRAFT_CATEGORIES[curStep.category]
+                        ? DRAFT_CATEGORIES[curStep.category].label
+                        : curStep.category;
+
+                    if (myTurn) {
+                        turnEl.className = "turn-banner " + (curStep.action === "ban" ? "turn-ban" : "turn-pick");
+                        turnEl.textContent = `Your turn — ${curStep.action.toUpperCase()} a ${catLabel}`;
+                    } else {
+                        turnEl.className = "turn-banner turn-wait";
+                        turnEl.textContent = `${activeName} is choosing a ${catLabel} to ${curStep.action}...`;
+                    }
+                    renderPool(curStep);
+                }
+
+                renderDraftBoards();
+                renderHistoryLog();
+            }
+
+            function renderPool(curStep) {
+                ["faction", "society", "ruler"].forEach((cat) => {
+                    const wrap = document.getElementById("pool-" + cat);
+                    if (!wrap) return;
+                    wrap.innerHTML = "";
+                    const pool = getPool(cat);
+                    pool.forEach((entry) => {
+                        const tile = document.createElement("div");
+                        tile.className = "pool-tile";
+                        const banned = state.banned[cat].includes(entry.id);
+                        let pickedBy = null;
+                        for (const pi in state.picks) {
+                            if (state.picks[pi][cat] && state.picks[pi][cat].includes(entry.id)) {
+                                pickedBy = parseInt(pi, 10);
+                                break;
+                            }
+                        }
+                        const unavailable = banned || pickedBy !== null;
+
+                        const isCurrent =
+                            curStep && curStep.category === cat && curStep.player === myPlayerIndex;
+                        const clickable = isCurrent && !unavailable;
+
+                        if (banned) tile.classList.add("banned");
+                        if (pickedBy !== null) tile.classList.add("picked");
+                        if (!clickable) tile.classList.add("disabled");
+
+                        const img = document.createElement("img");
+                        img.src = iconUrlFor(cat, entry);
+                        img.alt = "";
+                        img.onerror = () => {
+                            img.style.display = "none";
+                        };
+                        tile.appendChild(img);
+
+                        const span = document.createElement("span");
+                        let suffix = "";
+                        if (banned) suffix = " (banned)";
+                        else if (pickedBy !== null) {
+                            const byName = (state.players.find((p) => p.index === pickedBy) || {}).name;
+                            suffix = ` (P${pickedBy + 1}${byName ? ": " + byName : ""})`;
+                        }
+                        span.textContent = (entry.name || entry.id) + suffix;
+                        tile.appendChild(span);
+
+                        if (clickable) {
+                            tile.addEventListener("click", () => {
+                                playerSendAction(curStep.action, cat, entry.id);
+                            });
+                        }
+                        wrap.appendChild(tile);
+                    });
+                });
+            }
+
+            function renderDraftBoards() {
+                const wrap = document.getElementById("draftBoards");
+                wrap.innerHTML = "";
+                state.players.forEach((p) => {
+                    const board = document.createElement("div");
+                    board.className = "draft-board";
+                    board.innerHTML = `<h3>${escapeHtml(p.name)}${
+                        p.index === myPlayerIndex ? " (you)" : ""
+                    }</h3>`;
+
+                    ["ruler", "faction", "society"].forEach((cat) => {
+                        const picks = (state.picks[p.index] && state.picks[p.index][cat]) || [];
+                        const row = document.createElement("div");
+                        row.innerHTML =
+                            `<div style="font-family:Decorative;color:burlywood;font-size:13px;margin-top:4px">${DRAFT_CATEGORIES[cat].plural}</div>`;
+                        if (picks.length === 0) {
+                            const slot = document.createElement("div");
+                            slot.className = "slot slot-empty";
+                            slot.textContent = "—";
+                            row.appendChild(slot);
+                        } else {
+                            picks.forEach((id) => {
+                                const entry = lookupEntry(cat, id);
+                                if (!entry) return;
+                                const slot = document.createElement("div");
+                                slot.className = "slot slot-pick";
+                                slot.innerHTML =
+                                    `<img src="${iconUrlFor(cat, entry)}" onerror="this.style.display='none'"/>` +
+                                    `<span>${escapeHtml(entry.name || entry.id)}</span>`;
+                                row.appendChild(slot);
+                            });
+                        }
+                        board.appendChild(row);
+                    });
+                    wrap.appendChild(board);
+                });
+
+                // Show bans board
+                const bansBoard = document.createElement("div");
+                bansBoard.className = "draft-board";
+                bansBoard.innerHTML = `<h3>Banned</h3>`;
+                ["faction", "society", "ruler"].forEach((cat) => {
+                    const bans = state.banned[cat] || [];
+                    if (bans.length === 0) return;
+                    const label = document.createElement("div");
+                    label.style.fontFamily = "Decorative";
+                    label.style.color = "burlywood";
+                    label.style.fontSize = "13px";
+                    label.style.marginTop = "4px";
+                    label.textContent = DRAFT_CATEGORIES[cat].plural;
+                    bansBoard.appendChild(label);
+                    bans.forEach((id) => {
+                        const entry = lookupEntry(cat, id);
+                        if (!entry) return;
+                        const slot = document.createElement("div");
+                        slot.className = "slot slot-ban";
+                        slot.innerHTML =
+                            `<img src="${iconUrlFor(cat, entry)}" onerror="this.style.display='none'"/>` +
+                            `<span>${escapeHtml(entry.name || entry.id)}</span>`;
+                        bansBoard.appendChild(slot);
+                    });
+                });
+                if (bansBoard.children.length > 1) wrap.appendChild(bansBoard);
+            }
+
+            function renderHistoryLog() {
+                const box = document.getElementById("historyBox");
+                box.innerHTML = "";
+                state.history.forEach((h) => {
+                    const line = document.createElement("div");
+                    line.className = "log-line log-" + h.action;
+                    const pl = state.players.find((p) => p.index === h.player);
+                    const plName = pl ? pl.name : `Player ${h.player + 1}`;
+                    line.textContent = `#${h.step + 1} ${plName} ${h.action === "ban" ? "BANNED" : "PICKED"} ${h.entryName} [${h.category}]`;
+                    box.appendChild(line);
+                });
+                box.scrollTop = box.scrollHeight;
+            }
+
+            // ============================================================
+            // Misc UI handlers
+            // ============================================================
+            function copyShareLink() {
+                const input = document.getElementById("shareLink");
+                input.select();
+                input.setSelectionRange(0, 99999);
+                navigator.clipboard.writeText(input.value);
+            }
+
+            function onPresetSelectChange() {
+                const name = document.getElementById("presetSelect").value;
+                const preset = DEFAULT_PRESETS[name];
+                if (preset) {
+                    document.getElementById("presetJson").value = JSON.stringify(preset, null, 2);
+                }
+                // keep the two preset selects in sync
+                const ps2 = document.getElementById("presetSelect2");
+                if (ps2 && ps2.value !== name) ps2.value = name;
+                if (isHost) {
+                    applyPreset(name);
+                    broadcastState();
+                    renderHost();
+                }
+            }
+
+            function onApplyCustomPreset() {
+                if (!isHost) return;
+                const txt = document.getElementById("presetJson").value;
+                if (applyPreset("Custom", txt)) {
+                    broadcastState();
+                    renderHost();
+                    log("Applied custom preset.", "info");
+                }
+            }
+
+            function onLoadPresetFile(evt) {
+                const file = evt.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = () => {
+                    document.getElementById("presetJson").value = reader.result;
+                    if (isHost) onApplyCustomPreset();
+                };
+                reader.readAsText(file);
+            }
+
+            function toggleTab(tab) {
+                ["presetListTab", "presetJsonTab"].forEach((t) => {
+                    const btn = document.getElementById(t + "Btn");
+                    const pane = document.getElementById(t);
+                    const active = t === tab;
+                    btn.classList.toggle("active", active);
+                    pane.classList.toggle("hidden", !active);
+                });
+            }
+
+            function log(msg, kind) {
+                const box = document.getElementById("eventLog");
+                if (!box) return;
+                const line = document.createElement("div");
+                line.className = "log-line" + (kind ? " log-" + kind : "");
+                const ts = new Date().toLocaleTimeString();
+                line.textContent = `[${ts}] ${msg}`;
+                box.appendChild(line);
+                box.scrollTop = box.scrollHeight;
+            }
+
+            function escapeHtml(s) {
+                return ("" + (s || "")).replace(/[&<>"']/g, (c) => ({
+                    "&": "&amp;",
+                    "<": "&lt;",
+                    ">": "&gt;",
+                    '"': "&quot;",
+                    "'": "&#39;"
+                })[c]);
+            }
+
+            // default preset tab
+            document.addEventListener("DOMContentLoaded", () => {
+                setTimeout(() => toggleTab("presetListTab"), 0);
+            });
+        </script>
+    </head>
+
+    <body>
+        <div id="header"></div>
+
+        <div class="tome_name">Draft Lobby</div>
+
+        <div class="draft-wrap">
+            <!-- Landing: choose Host or Join -->
+            <div id="landingSection" class="draft-container hidden">
+                <div class="draft-section-title">Welcome</div>
+                <div class="draft-help">
+                    Draft factions, society traits, and ruler types with your friends before a match.
+                    Create a lobby to host, or open a share link to join an existing one.
+                </div>
+
+                <div class="row">
+                    <div class="col" style="min-width:300px;flex:1">
+                        <div class="draft-section-title" style="font-size:15px">Host a new lobby</div>
+                        <div class="row">
+                            <label style="min-width:70px">Your name:</label>
+                            <input id="hostName" class="inputfield player-name-input" type="text" maxlength="24" placeholder="Host" />
+                        </div>
+                        <div class="row">
+                            <label style="min-width:70px">Preset:</label>
+                            <select id="presetSelect" class="inputfield preset-dropdown" onchange="onPresetSelectChange()"></select>
+                        </div>
+                        <div class="row">
+                            <button class="button-random" onclick="hostCreateLobby()">Create Lobby</button>
+                        </div>
+                    </div>
+                    <div class="col" style="min-width:300px;flex:1">
+                        <div class="draft-section-title" style="font-size:15px">Join an existing lobby</div>
+                        <div class="row">
+                            <label style="min-width:70px">Lobby ID:</label>
+                            <input id="joinLobbyIdInput2" class="inputfield" type="text" placeholder="Paste lobby id or use share link" />
+                        </div>
+                        <div class="row">
+                            <button class="button-random" onclick="
+                                document.getElementById('joinLobbyIdInput').value =
+                                    document.getElementById('joinLobbyIdInput2').value;
+                                showSection('joinSection');
+                            ">Continue</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Join flow (name + id) -->
+            <div id="joinSection" class="draft-container hidden">
+                <div class="draft-section-title">Join Lobby</div>
+                <div class="row">
+                    <label style="min-width:80px">Your name:</label>
+                    <input id="joinName" class="inputfield player-name-input" type="text" maxlength="24" placeholder="Player" />
+                </div>
+                <div class="row">
+                    <label style="min-width:80px">Lobby ID:</label>
+                    <input id="joinLobbyIdInput" class="inputfield share-link-input" type="text" />
+                </div>
+                <div class="row">
+                    <button class="button-random" onclick="joinLobby()">Join</button>
+                    <button class="small-btn" onclick="showSection('landingSection')">Back</button>
+                </div>
+            </div>
+
+            <!-- Lobby (pre-draft) view -->
+            <div id="hostSection" class="draft-container hidden">
+                <div class="draft-section-title">Lobby</div>
+
+                <div class="row">
+                    <span>Lobby ID:</span>
+                    <code id="hostLobbyId" style="color:#ffeaa7"></code>
+                </div>
+
+                <div class="row" id="shareRow">
+                    <span>Share link:</span>
+                    <input id="shareLink" class="inputfield share-link-input" readonly />
+                    <button class="small-btn" onclick="copyShareLink()">Copy</button>
+                </div>
+
+                <div class="row">
+                    <span>Your name:</span>
+                    <input id="lobbyNameInput" class="inputfield player-name-input" type="text" maxlength="24" />
+                    <button class="small-btn" onclick="playerSendName()">Update</button>
+                </div>
+
+                <div class="row">
+                    <span>Preset:</span>
+                    <strong id="hostCurrentPreset" style="color:burlywood"></strong>
+                    <span>Capacity:</span>
+                    <strong id="hostCapacity" style="color:#ffeaa7"></strong>
+                </div>
+
+                <div id="hostOnlyControls">
+                    <div class="tabs">
+                        <button id="presetListTabBtn" class="tab-btn" onclick="toggleTab('presetListTab')">Built-in presets</button>
+                        <button id="presetJsonTabBtn" class="tab-btn" onclick="toggleTab('presetJsonTab')">Custom JSON</button>
+                    </div>
+
+                    <div id="presetListTab">
+                        <div class="draft-help">
+                            Pick a preset defining the picks/bans sequence. You can edit this after
+                            the lobby is created.
+                        </div>
+                        <div class="row">
+                            <select id="presetSelect2" class="inputfield preset-dropdown" onchange="
+                                document.getElementById('presetSelect').value = this.value;
+                                onPresetSelectChange();
+                            "></select>
+                        </div>
+                    </div>
+
+                    <div id="presetJsonTab" class="hidden">
+                        <div class="draft-help">
+                            Paste a preset JSON below or load one from a file.
+                            Supported fields:
+                            <code>name</code>, <code>players</code>,
+                            <code>sequence[]</code> with <code>action</code>
+                            (ban|pick), <code>category</code> (faction|society|ruler),
+                            and optional <code>player</code> (0-based index).
+                        </div>
+                        <div class="row">
+                            <input type="file" accept="application/json,.json" onchange="onLoadPresetFile(event)" />
+                            <button class="small-btn" onclick="onApplyCustomPreset()">Apply JSON</button>
+                        </div>
+                        <textarea id="presetJson" class="preset-json-area" spellcheck="false"></textarea>
+                    </div>
+                </div>
+
+                <div class="draft-section-title" style="margin-top:12px">Players</div>
+                <div id="playerList" class="player-list"></div>
+
+                <div class="draft-section-title" style="margin-top:12px">Sequence Preview</div>
+                <div id="sequencePreview" class="col" style="max-height:220px;overflow:auto"></div>
+
+                <div class="row" style="margin-top:12px">
+                    <button id="startDraftBtn" class="button-random" onclick="hostStartDraft()">Start Draft</button>
+                </div>
+            </div>
+
+            <!-- Draft board -->
+            <div id="draftSection" class="draft-container hidden">
+                <div id="turnBanner" class="turn-banner turn-wait">Loading...</div>
+
+                <div class="draft-section-title">Faction Pool</div>
+                <div id="pool-faction" class="pool-grid"></div>
+
+                <div class="draft-section-title" style="margin-top:12px">Society Trait Pool</div>
+                <div id="pool-society" class="pool-grid"></div>
+
+                <div class="draft-section-title" style="margin-top:12px">Ruler Type Pool</div>
+                <div id="pool-ruler" class="pool-grid"></div>
+
+                <div class="draft-section-title" style="margin-top:16px">Results</div>
+                <div id="draftBoards" class="draft-boards"></div>
+
+                <div class="draft-section-title" style="margin-top:12px">Draft Log</div>
+                <div id="historyBox" class="log-box"></div>
+            </div>
+
+            <!-- Event log (peer status) -->
+            <div class="draft-container">
+                <div class="draft-section-title">Connection Log</div>
+                <div id="eventLog" class="log-box"></div>
+            </div>
+        </div>
+
+        <dialog id="hoverDiv" class="tooltiptextnew"></dialog>
+        <dialog id="hoverDiv2" class="tooltiptextnew"></dialog>
+
+        <footer><br /><br /></footer>
+    </body>
+</html>
