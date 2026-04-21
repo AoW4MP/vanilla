@@ -569,6 +569,8 @@
                     2
                 );
 
+                initBrokerUi();
+
                 if (urlLobby) {
                     // Joining an existing lobby
                     document.getElementById("joinLobbyIdInput").value = urlLobby;
@@ -577,6 +579,145 @@
                 } else {
                     showSection("landingSection");
                 }
+            }
+
+            // ------------------------------------------------------------
+            // Broker settings UI
+            // ------------------------------------------------------------
+            function initBrokerUi() {
+                const sel = document.getElementById("brokerPresetSelect");
+                if (!sel) return;
+                const opts = Object.entries(BROKER_PRESETS)
+                    .map(([k, v]) => `<option value="${k}">${escapeHtml(v.label)}</option>`)
+                    .join("");
+                sel.innerHTML = opts + `<option value="custom">Custom...</option>`;
+                populateBrokerInputs(currentBroker());
+                // Try to match current config to a preset
+                const cur = currentBroker();
+                const match = Object.entries(BROKER_PRESETS).find(
+                    ([, v]) => v.host === cur.host && v.port === cur.port && v.path === cur.path && !!v.secure === !!cur.secure
+                );
+                sel.value = match ? match[0] : "custom";
+            }
+
+            function populateBrokerInputs(cfg) {
+                document.getElementById("brokerHostInput").value = cfg.host || "";
+                document.getElementById("brokerPortInput").value = cfg.port || 443;
+                document.getElementById("brokerPathInput").value = cfg.path || "/";
+                document.getElementById("brokerSecureInput").checked = !!cfg.secure;
+                document.getElementById("brokerKeyInput").value = cfg.key || "peerjs";
+            }
+
+            function onBrokerPresetChange() {
+                const sel = document.getElementById("brokerPresetSelect");
+                const v = sel.value;
+                if (v !== "custom" && BROKER_PRESETS[v]) {
+                    populateBrokerInputs(BROKER_PRESETS[v]);
+                }
+            }
+
+            function readBrokerInputs() {
+                return {
+                    host: (document.getElementById("brokerHostInput").value || "").trim(),
+                    port: parseInt(document.getElementById("brokerPortInput").value, 10) || 443,
+                    path: (document.getElementById("brokerPathInput").value || "/").trim(),
+                    secure: !!document.getElementById("brokerSecureInput").checked,
+                    key: (document.getElementById("brokerKeyInput").value || "peerjs").trim()
+                };
+            }
+
+            function onSaveBrokerSettings() {
+                const cfg = readBrokerInputs();
+                if (!cfg.host) {
+                    alert("Broker host is required.");
+                    return;
+                }
+                saveBrokerSetting(cfg);
+                log(`Broker saved: ${cfg.host}:${cfg.port}${cfg.path} (secure=${cfg.secure})`, "info");
+                alert("Broker setting saved. It will be used next time you create or join a lobby.");
+            }
+
+            function onResetBrokerSettings() {
+                try { localStorage.removeItem(BROKER_STORAGE_KEY); } catch (e) {}
+                populateBrokerInputs(BROKER_PRESETS.default);
+                document.getElementById("brokerPresetSelect").value = "default";
+                log("Broker reset to default (0.peerjs.com).", "info");
+            }
+
+            // ------------------------------------------------------------
+            // Broker connectivity diagnostic.
+            //   Calls the PeerServer id-assignment endpoint from THIS browser
+            //   (so the check is scoped to the user's own network). A 200 +
+            //   short hex id means the broker is reachable. 403 / opaque
+            //   no-cors failure / network error means the broker cannot be
+            //   used from here and we should try another one.
+            // ------------------------------------------------------------
+            function brokerIdUrl(cfg) {
+                const scheme = cfg.secure ? "https" : "http";
+                const path = cfg.path || "/";
+                const sep = path.endsWith("/") ? "" : "/";
+                const key = cfg.key || "peerjs";
+                return `${scheme}://${cfg.host}:${cfg.port}${path}${sep}${key}/id`;
+            }
+
+            async function probeBroker(cfg, timeoutMs) {
+                const url = brokerIdUrl(cfg);
+                const started = performance.now();
+                const controller = new AbortController();
+                const timer = setTimeout(() => controller.abort(), timeoutMs || 6000);
+                try {
+                    const res = await fetch(url, {
+                        method: "GET",
+                        mode: "cors",
+                        cache: "no-store",
+                        signal: controller.signal
+                    });
+                    const elapsed = Math.round(performance.now() - started);
+                    const body = await res.text().catch(() => "");
+                    clearTimeout(timer);
+                    if (res.ok) {
+                        return { ok: true, status: res.status, elapsed, sample: body.slice(0, 40) };
+                    }
+                    return { ok: false, status: res.status, elapsed, sample: body.slice(0, 80) };
+                } catch (err) {
+                    clearTimeout(timer);
+                    return {
+                        ok: false,
+                        status: 0,
+                        elapsed: Math.round(performance.now() - started),
+                        error: err && err.name === "AbortError" ? "timeout" : (err && err.message) || "network-error"
+                    };
+                }
+            }
+
+            function formatProbeResult(cfg, r) {
+                const label = `${cfg.host}:${cfg.port}${cfg.path || "/"}`;
+                if (r.ok) return `OK (${r.status}, ${r.elapsed}ms) ${label} — sample: ${r.sample}`;
+                if (r.status === 403) return `BLOCKED (403) ${label} — broker refuses this IP/region; try another.`;
+                if (r.status === 0) return `UNREACHABLE ${label} — ${r.error} (firewall / region block / broker down).`;
+                return `HTTP ${r.status} ${label} — ${r.sample || "no body"}`;
+            }
+
+            async function onTestBroker() {
+                const cfg = readBrokerInputs();
+                if (!cfg.host) { alert("Enter a broker host first."); return; }
+                log(`Testing broker ${cfg.host}... (from THIS device)`, "info");
+                const r = await probeBroker(cfg);
+                const msg = formatProbeResult(cfg, r);
+                log(msg, r.ok ? "info" : "bad");
+                alert(msg);
+            }
+
+            async function onTestAllBrokers() {
+                log("Testing all known brokers from THIS device...", "info");
+                const results = [];
+                for (const [, cfg] of Object.entries(BROKER_PRESETS)) {
+                    const r = await probeBroker(cfg);
+                    const line = formatProbeResult(cfg, r);
+                    log(line, r.ok ? "info" : "bad");
+                    results.push(line);
+                }
+                alert("Broker reachability from this browser:\n\n" + results.join("\n\n"));
             }
 
             function showSection(id) {
@@ -617,6 +758,108 @@
             // ============================================================
             // Peer setup
             // ============================================================
+            // Public STUN (+ a free TURN) for NAT traversal. Without explicit
+            // iceServers PeerJS on some Windows setups (Edge/Chrome behind
+            // VPN/corporate NAT) hangs during ICE gathering. The TURN is the
+            // openrelay.metered.ca community relay — handy as a fallback when
+            // STUN alone cannot punch through symmetric NAT. Replace with your
+            // own TURN creds in production if you need guarantees.
+            const PEER_ICE_CONFIG = {
+                iceServers: [
+                    { urls: "stun:stun.l.google.com:19302" },
+                    { urls: "stun:stun1.l.google.com:19302" },
+                    { urls: "stun:stun.cloudflare.com:3478" },
+                    {
+                        urls: "turn:openrelay.metered.ca:80",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    },
+                    {
+                        urls: "turn:openrelay.metered.ca:443",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    },
+                    {
+                        urls: "turn:openrelay.metered.ca:443?transport=tcp",
+                        username: "openrelayproject",
+                        credential: "openrelayproject"
+                    }
+                ],
+                sdpSemantics: "unified-plan"
+            };
+
+            function describePeerError(err) {
+                if (!err) return "Unknown error";
+                if (typeof err === "string") return err;
+                const type = err.type || "error";
+                const msg = err.message || err.toString();
+                const hints = {
+                    "browser-incompatible": "Your browser does not support WebRTC. Try an up-to-date Chrome, Edge or Firefox.",
+                    network: "Cannot reach the PeerJS broker (often HTTP 403 from 0.peerjs.com). Open Advanced and switch to a community broker or self-host.",
+                    "server-error": "Broker returned an error. If it is HTTP 403, switch broker under Advanced.",
+                    "socket-error": "Broker WebSocket failed. Windows Defender, VPN or AV sometimes blocks this — switch broker under Advanced or change networks.",
+                    "socket-closed": "Broker dropped the connection. Attempting to reconnect...",
+                    disconnected: "Disconnected from the broker. Attempting to reconnect...",
+                    "peer-unavailable": "That lobby id does not exist (or the host is offline).",
+                    "ssl-unavailable": "HTTPS/SSL setup issue with the broker.",
+                    "unavailable-id": "This peer id is already taken, pick a new lobby.",
+                    webrtc: "WebRTC failure — usually a NAT/firewall issue. A TURN server is required here."
+                };
+                return `${type}: ${msg}${hints[type] ? ` — ${hints[type]}` : ""}`;
+            }
+
+            // ------------------------------------------------------------
+            // PeerJS signalling broker selection
+            //   The public 0.peerjs.com cloud broker occasionally returns HTTP
+            //   403 (rate limits / IP blocks). Users can override the broker
+            //   by picking a preset, pasting custom host:port/path values in
+            //   the Advanced panel, or using ?broker=host:port/path&secure=1
+            //   in the URL. Settings persist in localStorage.
+            // ------------------------------------------------------------
+            const BROKER_PRESETS = {
+                default: { label: "0.peerjs.com (PeerJS public)", host: "0.peerjs.com", port: 443, path: "/", secure: true, key: "peerjs" },
+                "92k":   { label: "peerjs.92k.de (community)",    host: "peerjs.92k.de", port: 443, path: "/", secure: true, key: "peerjs" }
+            };
+            const BROKER_STORAGE_KEY = "aow4_draft_broker_v1";
+
+            function parseBrokerFromUrl() {
+                const qs = new URLSearchParams(window.location.search);
+                const b = qs.get("broker");
+                if (!b) return null;
+                // host[:port][/path], plus optional &secure=0/1 & key=<apiKey>
+                const m = b.match(/^([^:/]+)(?::(\d+))?(\/.*)?$/);
+                if (!m) return null;
+                const secureParam = qs.get("secure");
+                return {
+                    host: m[1],
+                    port: m[2] ? parseInt(m[2], 10) : 443,
+                    path: m[3] || "/",
+                    secure: secureParam == null ? true : secureParam === "1" || secureParam === "true",
+                    key: qs.get("key") || "peerjs"
+                };
+            }
+
+            function loadBrokerSetting() {
+                const fromUrl = parseBrokerFromUrl();
+                if (fromUrl) return fromUrl;
+                try {
+                    const raw = localStorage.getItem(BROKER_STORAGE_KEY);
+                    if (raw) {
+                        const cfg = JSON.parse(raw);
+                        if (cfg && cfg.host) return cfg;
+                    }
+                } catch (e) {}
+                return BROKER_PRESETS.default;
+            }
+
+            function saveBrokerSetting(cfg) {
+                try { localStorage.setItem(BROKER_STORAGE_KEY, JSON.stringify(cfg)); } catch (e) {}
+            }
+
+            function currentBroker() {
+                return loadBrokerSetting();
+            }
+
             function createPeer() {
                 if (peer) {
                     try {
@@ -624,8 +867,27 @@
                     } catch (e) {}
                     peer = null;
                 }
+                const broker = currentBroker();
+                log(`Using broker: ${broker.host}:${broker.port}${broker.path} (secure=${!!broker.secure})`, "info");
                 // undefined => random id from PeerJS broker
-                peer = new Peer(undefined, { debug: 1 });
+                peer = new Peer(undefined, {
+                    debug: 2,
+                    host: broker.host,
+                    port: broker.port,
+                    path: broker.path,
+                    secure: !!broker.secure,
+                    key: broker.key || "peerjs",
+                    config: PEER_ICE_CONFIG
+                });
+                // PeerJS signals "disconnected" when the broker socket drops
+                // but the peer itself is still alive — just reconnect so ids
+                // don't get stale (common on flaky Windows networks).
+                peer.on("disconnected", () => {
+                    log("Broker disconnected, attempting to reconnect...", "bad");
+                    setTimeout(() => {
+                        try { if (peer && !peer.destroyed) peer.reconnect(); } catch (e) {}
+                    }, 1000);
+                });
                 return peer;
             }
 
@@ -652,7 +914,11 @@
                     renderHost();
                 });
                 peer.on("error", (err) => {
-                    log("Peer error: " + err, "bad");
+                    const desc = describePeerError(err);
+                    log("Peer error: " + desc, "bad");
+                    if (err && err.type && !["peer-unavailable", "disconnected", "socket-closed", "network"].includes(err.type)) {
+                        alert("Lobby could not be created.\n\n" + desc);
+                    }
                 });
                 peer.on("connection", (conn) => {
                     conn.on("open", () => {
@@ -732,7 +998,18 @@
 
             function buildShareUrl(lobbyId) {
                 const base = window.location.href.split("?")[0];
-                return base + "?lobby=" + encodeURIComponent(lobbyId);
+                const parts = ["lobby=" + encodeURIComponent(lobbyId)];
+                const cfg = currentBroker();
+                const def = BROKER_PRESETS.default;
+                // Only append broker params if the host picked a non-default
+                // broker; otherwise the link stays clean.
+                if (cfg.host !== def.host || cfg.port !== def.port || cfg.path !== def.path || !!cfg.secure !== !!def.secure) {
+                    const brokerStr = `${cfg.host}:${cfg.port}${cfg.path || ""}`;
+                    parts.push("broker=" + encodeURIComponent(brokerStr));
+                    parts.push("secure=" + (cfg.secure ? "1" : "0"));
+                    if (cfg.key && cfg.key !== "peerjs") parts.push("key=" + encodeURIComponent(cfg.key));
+                }
+                return base + "?" + parts.join("&");
             }
 
             // ============================================================
@@ -767,8 +1044,13 @@
                     });
                 });
                 peer.on("error", (err) => {
-                    log("Peer error: " + err, "bad");
-                    alert("Connection error: " + err);
+                    const desc = describePeerError(err);
+                    log("Peer error: " + desc, "bad");
+                    // Silent retry for broker-side blips; show a dialog only for
+                    // hard failures that the user needs to act on.
+                    if (!err || !err.type || !["disconnected", "socket-closed", "network"].includes(err.type)) {
+                        alert("Connection error.\n\n" + desc);
+                    }
                 });
             }
 
@@ -1675,6 +1957,51 @@
                         </div>
                     </div>
                 </div>
+
+                <details style="margin-top:12px">
+                    <summary style="cursor:pointer;color:#9bd2ff">Advanced — PeerJS broker (fix for 403 / connection errors)</summary>
+                    <div class="draft-help" style="margin-top:8px">
+                        The default public broker <code>0.peerjs.com</code> sometimes returns
+                        <strong>HTTP 403</strong> (rate-limited / IP-blocked). Pick a community
+                        broker or point this at your own self-hosted PeerServer. Both sides of the
+                        draft must use the <em>same</em> broker. Settings are saved in this browser.
+                        Self-host: <code>npx peerjs --port 9000 --path /myapp</code>.
+                    </div>
+                    <div class="row">
+                        <label style="min-width:80px">Preset:</label>
+                        <select id="brokerPresetSelect" class="inputfield" onchange="onBrokerPresetChange()"></select>
+                    </div>
+                    <div class="row">
+                        <label style="min-width:80px">Host:</label>
+                        <input id="brokerHostInput" class="inputfield" type="text" style="min-width:200px" />
+                        <label>Port:</label>
+                        <input id="brokerPortInput" class="inputfield" type="number" style="width:90px" />
+                    </div>
+                    <div class="row">
+                        <label style="min-width:80px">Path:</label>
+                        <input id="brokerPathInput" class="inputfield" type="text" style="min-width:200px" />
+                        <label>Secure (wss):</label>
+                        <input id="brokerSecureInput" type="checkbox" />
+                    </div>
+                    <div class="row">
+                        <label style="min-width:80px">Key:</label>
+                        <input id="brokerKeyInput" class="inputfield" type="text" style="min-width:120px" placeholder="peerjs" />
+                        <button class="small-btn" onclick="onSaveBrokerSettings()">Save broker</button>
+                        <button class="small-btn" onclick="onResetBrokerSettings()">Reset</button>
+                    </div>
+                    <div class="row">
+                        <button class="small-btn" onclick="onTestBroker()">Test this broker from my browser</button>
+                        <button class="small-btn" onclick="onTestAllBrokers()">Test all presets</button>
+                    </div>
+                    <div class="draft-help">
+                        The test runs from <strong>this browser, on this network</strong>. Your friends must
+                        run it from <em>their</em> browser — a broker that works for you may return 403 /
+                        timeout for them (common from RU/BY networks). Share the same broker with
+                        your opponent by appending
+                        <code>&amp;broker=host:port/path&amp;secure=1</code> to the lobby share link, or
+                        send them the Advanced settings directly.
+                    </div>
+                </details>
             </div>
 
             <!-- Join flow (name + id) -->
