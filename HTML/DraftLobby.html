@@ -152,6 +152,10 @@
                 font-family: "Decorative";
                 text-align: center;
                 margin-bottom: 12px;
+                position: sticky;
+                top: 0;
+                z-index: 25;
+                backdrop-filter: blur(2px);
             }
 
             .turn-pick {
@@ -1426,29 +1430,16 @@
 
                     ["ruler", "faction", "society"].forEach((cat) => {
                         const picks = (state.picks[p.index] && state.picks[p.index][cat]) || [];
-                        const prots = (state.protects[p.index] && state.protects[p.index][cat]) || [];
                         const row = document.createElement("div");
                         row.innerHTML =
                             `<div style="font-family:Decorative;color:burlywood;font-size:13px;margin-top:4px">${DRAFT_CATEGORIES[cat].plural}</div>`;
-                        prots.forEach((id) => {
-                            const entry = lookupEntry(cat, id);
-                            if (!entry) return;
-                            const alsoPicked = picks.includes(id);
-                            const slot = document.createElement("div");
-                            slot.className = "slot slot-protected";
-                            slot.innerHTML =
-                                `<img src="${iconUrlFor(cat, entry)}" onerror="this.style.display='none'"/>` +
-                                `<span>${escapeHtml(entry.name || entry.id)} (protected${alsoPicked ? " · picked" : ""})</span>`;
-                            row.appendChild(slot);
-                        });
-                        if (picks.length === 0 && prots.length === 0) {
+                        if (picks.length === 0) {
                             const slot = document.createElement("div");
                             slot.className = "slot slot-empty";
                             slot.textContent = "—";
                             row.appendChild(slot);
                         } else {
                             picks.forEach((id) => {
-                                if (prots.includes(id)) return; // already rendered above
                                 const entry = lookupEntry(cat, id);
                                 if (!entry) return;
                                 const slot = document.createElement("div");
@@ -1463,6 +1454,49 @@
                     });
                     wrap.appendChild(board);
                 });
+
+                // Protected board — protected entries are not owned by anyone,
+                // they are just immune to bans and remain in the pool to be
+                // picked by either player later.
+                const hasAnyProtect = Object.keys(state.protects || {}).some((pi) =>
+                    ["faction", "society", "ruler"].some((cat) =>
+                        (state.protects[pi][cat] || []).length > 0
+                    )
+                );
+                if (hasAnyProtect) {
+                    const protBoard = document.createElement("div");
+                    protBoard.className = "draft-board";
+                    protBoard.innerHTML = `<h3>Protected (safe from bans)</h3>`;
+                    ["faction", "society", "ruler"].forEach((cat) => {
+                        const protectedIds = state.protected[cat] || [];
+                        if (protectedIds.length === 0) return;
+                        const label = document.createElement("div");
+                        label.style.fontFamily = "Decorative";
+                        label.style.color = "burlywood";
+                        label.style.fontSize = "13px";
+                        label.style.marginTop = "4px";
+                        label.textContent = DRAFT_CATEGORIES[cat].plural;
+                        protBoard.appendChild(label);
+                        protectedIds.forEach((id) => {
+                            const entry = lookupEntry(cat, id);
+                            if (!entry) return;
+                            const protectors = [];
+                            for (const pi in state.protects || {}) {
+                                if ((state.protects[pi][cat] || []).includes(id)) protectors.push(parseInt(pi, 10));
+                            }
+                            const by = protectors.length
+                                ? ` — by ${protectors.map((i) => "P" + (i + 1)).join(", ")}`
+                                : "";
+                            const slot = document.createElement("div");
+                            slot.className = "slot slot-protected";
+                            slot.innerHTML =
+                                `<img src="${iconUrlFor(cat, entry)}" onerror="this.style.display='none'"/>` +
+                                `<span>${escapeHtml(entry.name || entry.id)}${by}</span>`;
+                            protBoard.appendChild(slot);
+                        });
+                    });
+                    wrap.appendChild(protBoard);
+                }
 
                 // Show bans board
                 const bansBoard = document.createElement("div");
