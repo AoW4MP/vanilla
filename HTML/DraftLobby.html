@@ -164,6 +164,15 @@
                 color: #ffb5b5;
             }
 
+            .turn-protect {
+                background-color: #4b3d1d;
+                color: #ffe7a0;
+            }
+
+            .turn-blind {
+                box-shadow: 0 0 12px #f1c40f inset;
+            }
+
             .turn-wait {
                 background-color: #333;
                 color: #c2c2c2;
@@ -218,6 +227,17 @@
             .pool-tile.picked {
                 background-color: #143a14;
                 color: #90ff90;
+            }
+
+            .pool-tile.protected {
+                box-shadow: 0 0 0 2px #f1c40f inset;
+                color: #ffe7a0;
+            }
+
+            .pool-tile.pending {
+                background-color: #2a3f5a;
+                box-shadow: 0 0 8px #4aa3df inset;
+                color: #cde8ff;
             }
 
             .draft-boards {
@@ -275,6 +295,10 @@
                 color: #baffb5;
             }
 
+            .slot-protected {
+                color: #ffe7a0;
+            }
+
             .category-label {
                 display: inline-block;
                 font-size: 10px;
@@ -327,6 +351,10 @@
 
             .log-box .log-ban {
                 color: #ff9090;
+            }
+
+            .log-box .log-protect {
+                color: #ffe7a0;
             }
 
             .log-box .log-info {
@@ -391,18 +419,25 @@
             //
             // Preset JSON schema:
             //   {
-            //     "name": "Standard 2P Ban/Pick",
+            //     "name": "1v1 Tournament",
             //     "players": 2,
+            //     "randomizeOrder": true,   // optional: shuffle Player A / B at draft start
             //     "sequence": [
-            //       { "action": "ban",  "category": "faction", "player": 0 },
-            //       { "action": "pick", "category": "faction", "player": 1 },
+            //       { "action": "ban",     "category": "faction", "player": 0, "blind": "phase1" },
+            //       { "action": "pick",    "category": "faction", "player": 1, "blind": "phase2" },
+            //       { "action": "protect", "category": "society", "player": 0 },
             //       ...
             //     ]
             //   }
             //
-            //   action:   "ban" | "pick"
+            //   action:   "ban" | "pick" | "protect"
+            //             "protect" marks an entry as un-bannable (still pickable).
             //   category: "faction" (Culture) | "society" (Society Trait) | "ruler" (Ruler Origin)
             //   player:   0..players-1 (optional; defaults to alternating by index)
+            //   blind:    optional group id. Consecutive steps sharing the same
+            //             blind id are collected simultaneously and revealed
+            //             together. Inside a blind group: duplicate bans fold
+            //             to one; both players may share the same faction pick.
             // ============================================================
 
             const DRAFT_CATEGORIES = {
@@ -423,55 +458,47 @@
                 }
             };
 
+            // Random pre-draft coin flip decides which real lobby slot plays as
+            // Player A (index 0) / Player B (index 1). The sequence below uses
+            // logical A/B indices; remapping happens at draft start.
             const DEFAULT_PRESETS = {
-                "Standard 1v1 (Ban + Pick)": {
-                    name: "Standard 1v1 (Ban + Pick)",
+                "1v1 Tournament": {
+                    name: "1v1 Tournament",
                     players: 2,
+                    randomizeOrder: true,
                     sequence: [
-                        { action: "ban", category: "faction", player: 0 },
-                        { action: "ban", category: "faction", player: 1 },
+                        // Phase 1 — Blind Faction Bans (2 each, duplicates count once)
+                        { action: "ban", category: "faction", player: 0, blind: "phase1_blind_faction_bans" },
+                        { action: "ban", category: "faction", player: 0, blind: "phase1_blind_faction_bans" },
+                        { action: "ban", category: "faction", player: 1, blind: "phase1_blind_faction_bans" },
+                        { action: "ban", category: "faction", player: 1, blind: "phase1_blind_faction_bans" },
+                        // Phase 2 — Blind Faction Picks (1 each)
+                        { action: "pick", category: "faction", player: 0, blind: "phase2_blind_faction_picks" },
+                        { action: "pick", category: "faction", player: 1, blind: "phase2_blind_faction_picks" },
+                        // Phase 3 — Blind Society Trait Protection (1 each)
+                        { action: "protect", category: "society", player: 0, blind: "phase3_blind_trait_protect" },
+                        { action: "protect", category: "society", player: 1, blind: "phase3_blind_trait_protect" },
+                        // Phase 4 — Trait Bans (8 total, pattern A B B A A B B A)
                         { action: "ban", category: "society", player: 0 },
                         { action: "ban", category: "society", player: 1 },
-                        { action: "pick", category: "faction", player: 0 },
-                        { action: "pick", category: "faction", player: 1 },
+                        { action: "ban", category: "society", player: 1 },
+                        { action: "ban", category: "society", player: 0 },
+                        { action: "ban", category: "society", player: 0 },
+                        { action: "ban", category: "society", player: 1 },
+                        { action: "ban", category: "society", player: 1 },
+                        { action: "ban", category: "society", player: 0 },
+                        // Phase 5 — Trait Draft (snake, 2 each: R1 A->B, R2 B->A)
                         { action: "pick", category: "society", player: 0 },
                         { action: "pick", category: "society", player: 1 },
-                        { action: "pick", category: "ruler", player: 0 },
-                        { action: "pick", category: "ruler", player: 1 }
-                    ]
-                },
-                "1v1 Picks Only": {
-                    name: "1v1 Picks Only",
-                    players: 2,
-                    sequence: [
-                        { action: "pick", category: "faction", player: 0 },
-                        { action: "pick", category: "faction", player: 1 },
-                        { action: "pick", category: "society", player: 0 },
-                        { action: "pick", category: "society", player: 1 },
-                        { action: "pick", category: "ruler", player: 0 },
-                        { action: "pick", category: "ruler", player: 1 }
-                    ]
-                },
-                "4-Player Snake Draft": {
-                    name: "4-Player Snake Draft",
-                    players: 4,
-                    sequence: [
-                        { action: "ban", category: "faction", player: 0 },
-                        { action: "ban", category: "faction", player: 1 },
-                        { action: "ban", category: "faction", player: 2 },
-                        { action: "ban", category: "faction", player: 3 },
-                        { action: "pick", category: "faction", player: 0 },
-                        { action: "pick", category: "faction", player: 1 },
-                        { action: "pick", category: "faction", player: 2 },
-                        { action: "pick", category: "faction", player: 3 },
-                        { action: "pick", category: "society", player: 3 },
-                        { action: "pick", category: "society", player: 2 },
                         { action: "pick", category: "society", player: 1 },
                         { action: "pick", category: "society", player: 0 },
-                        { action: "pick", category: "ruler", player: 0 },
+                        // Phase 6 — Ruler Ban (3 bans: A B A)
+                        { action: "ban", category: "ruler", player: 0 },
+                        { action: "ban", category: "ruler", player: 1 },
+                        { action: "ban", category: "ruler", player: 0 },
+                        // Phase 7 — Ruler Pick (B first, then A)
                         { action: "pick", category: "ruler", player: 1 },
-                        { action: "pick", category: "ruler", player: 2 },
-                        { action: "pick", category: "ruler", player: 3 }
+                        { action: "pick", category: "ruler", player: 0 }
                     ]
                 }
             };
@@ -495,16 +522,28 @@
             let hostConn = null; // player: conn to host
             let state = makeEmptyState();
 
+            // Blind-phase bookkeeping.
+            //   hostPendingBlind (host only): groupId -> {playerIndex -> [submission,...]}
+            //     — full details, never broadcast.
+            //   myPendingBlind  (every client): groupId -> [submission,...]
+            //     — this client's own submissions for the active blind group,
+            //       used for local echo/disabling tiles before the phase reveals.
+            let hostPendingBlind = {};
+            let myPendingBlind = {};
+
             function makeEmptyState() {
                 return {
                     phase: "lobby", // 'lobby' | 'draft' | 'done'
-                    presetName: "Standard 1v1 (Ban + Pick)",
-                    preset: DEFAULT_PRESETS["Standard 1v1 (Ban + Pick)"],
+                    presetName: "1v1 Tournament",
+                    preset: DEFAULT_PRESETS["1v1 Tournament"],
                     players: [], // [{ peerId, name, index }]
                     step: 0,
-                    history: [], // [{ step, action, category, player, entryId }]
-                    banned: { faction: [], society: [], ruler: [] }, // entry ids
-                    picks: {} // playerIndex -> { faction:[], society:[], ruler:[] }
+                    history: [], // [{ step, action, category, player, entryId, [duplicate] }]
+                    banned: { faction: [], society: [], ruler: [] },   // entry ids
+                    protected: { faction: [], society: [], ruler: [] }, // entry ids
+                    picks: {},     // playerIndex -> { faction:[], society:[], ruler:[] }
+                    protects: {},  // playerIndex -> { faction:[], society:[], ruler:[] }
+                    blindProgress: null // { groupId, total, counts:{playerIndex:submittedCount} }
                 };
             }
 
@@ -521,7 +560,7 @@
                 if (ps2) ps2.innerHTML = presetOptions;
 
                 document.getElementById("presetJson").value = JSON.stringify(
-                    DEFAULT_PRESETS["Standard 1v1 (Ban + Pick)"],
+                    DEFAULT_PRESETS["1v1 Tournament"],
                     null,
                     2
                 );
@@ -737,6 +776,13 @@
                 } else if (msg.type === "state") {
                     const prevPhase = state.phase;
                     state = msg.state;
+                    // Our actual slot may change if the host randomizes draft order
+                    // at start; locate ourselves via peerId in the players list.
+                    if (peer && peer.id) {
+                        const me = state.players.find((p) => p.peerId === peer.id);
+                        if (me) myPlayerIndex = me.index;
+                    }
+                    cleanupMyPendingBlind();
                     if (state.phase === "draft") {
                         if (prevPhase !== "draft") {
                             showSection("draftSection");
@@ -747,6 +793,10 @@
                     } else {
                         renderHost();
                     }
+                } else if (msg.type === "blindAck") {
+                    myPendingBlind[msg.groupId] = myPendingBlind[msg.groupId] || [];
+                    myPendingBlind[msg.groupId].push(msg.submission);
+                    renderDraft();
                 } else if (msg.type === "error") {
                     alert("Host says: " + msg.message);
                 }
@@ -754,7 +804,9 @@
 
             function playerSendAction(action, category, entryId) {
                 if (isHost) {
-                    attemptAction(0, action, category, entryId);
+                    // After randomizeOrder the host may have been shuffled to
+                    // player B; always submit under our actual seat, not 0.
+                    attemptAction(myPlayerIndex, action, category, entryId);
                 } else if (hostConn && hostConn.open) {
                     hostConn.send({ type: "action", action, category, entryId });
                 }
@@ -790,11 +842,12 @@
                     alert("Preset missing players or sequence.");
                     return false;
                 }
-                // fill in defaults
+                // fill in defaults (keep optional `blind` group id intact)
                 preset.sequence = preset.sequence.map((step, i) => ({
                     action: step.action || step.a,
                     category: step.category || step.c,
-                    player: typeof step.player === "number" ? step.player : (typeof step.p === "number" ? step.p : (i % preset.players))
+                    player: typeof step.player === "number" ? step.player : (typeof step.p === "number" ? step.p : (i % preset.players)),
+                    blind: step.blind || step.b || undefined
                 }));
                 state.presetName = name;
                 state.preset = preset;
@@ -806,69 +859,294 @@
                     if (!confirm(`Only ${state.players.length}/${state.preset.players} players connected. Start anyway?`))
                         return;
                 }
+
+                // Randomize Player A / Player B assignment if the preset requests it.
+                // The preset's sequence always addresses the two sides by logical index 0/1;
+                // we shuffle actual lobby players into those slots here.
+                if (state.preset.randomizeOrder && state.players.length >= 2) {
+                    const shuffled = state.players.slice().sort(() => Math.random() - 0.5);
+                    shuffled.forEach((p, i) => (p.index = i));
+                    state.players = shuffled.sort((a, b) => a.index - b.index);
+                    if (isHost) {
+                        const me = state.players.find((p) => p.peerId === "HOST");
+                        if (me) myPlayerIndex = me.index;
+                    }
+                    const order = state.players
+                        .map((p) => `P${p.index + 1} (${p.name})`)
+                        .join(" vs ");
+                    log(`Random order: ${order}.`, "info");
+                }
+
                 state.phase = "draft";
                 state.step = 0;
                 state.history = [];
                 state.banned = { faction: [], society: [], ruler: [] };
+                state.protected = { faction: [], society: [], ruler: [] };
+                state.protects = {};
+                state.blindProgress = null;
+                hostPendingBlind = {};
+                myPendingBlind = {};
                 state.players.forEach((p) => {
                     state.picks[p.index] = { faction: [], society: [], ruler: [] };
+                    state.protects[p.index] = { faction: [], society: [], ruler: [] };
                 });
+                // Start the first blind-group progress counter if applicable.
+                const firstGroup = currentGroup();
+                if (firstGroup.blind) updateBlindProgress(firstGroup);
                 broadcastState();
                 showSection("draftSection");
                 renderDraft();
                 log("Draft started.", "info");
             }
 
-            function attemptAction(playerIndex, action, category, entryId) {
-                if (!isHost) return;
-                if (state.phase !== "draft") return;
+            // ------------------------------------------------------------
+            // Blind-phase helpers
+            // ------------------------------------------------------------
+            // A "group" is either:
+            //   - one ordinary step (non-blind), or
+            //   - a run of consecutive steps sharing the same `blind` id.
+            // Within a blind group, players can submit in any order and the
+            // host reveals all submissions atomically after everyone is in.
+            function currentGroup() {
+                const seq = (state.preset && state.preset.sequence) || [];
+                const first = seq[state.step];
+                if (!first) return { steps: [], groupId: null, blind: false };
+                if (!first.blind) return { steps: [{ ...first, _idx: state.step }], groupId: null, blind: false };
+                const gid = first.blind;
+                const steps = [];
+                for (let i = state.step; i < seq.length; i++) {
+                    if (seq[i].blind === gid) steps.push({ ...seq[i], _idx: i });
+                    else break;
+                }
+                return { steps, groupId: gid, blind: true };
+            }
 
-                const step = state.preset.sequence[state.step];
-                if (!step) return;
-                if (step.player !== playerIndex) {
-                    log(`Rejected action from player ${playerIndex + 1}: not their turn.`, "bad");
+            function updateBlindProgress(group) {
+                if (!group || !group.blind) {
+                    state.blindProgress = null;
                     return;
                 }
-                if (step.action !== action || step.category !== category) {
-                    log(`Rejected action: expected ${step.action} ${step.category}.`, "bad");
+                const pend = hostPendingBlind[group.groupId] || {};
+                const counts = {};
+                state.players.forEach((p) => {
+                    counts[p.index] = (pend[p.index] || []).length;
+                });
+                state.blindProgress = {
+                    groupId: group.groupId,
+                    total: group.steps.length,
+                    counts
+                };
+            }
+
+            function flushBlindGroup(group) {
+                const pend = hostPendingBlind[group.groupId] || {};
+                // Replay the group's submissions in the preset's original step
+                // order so history reads deterministically.
+                const seenPlayerStep = {};
+                group.steps.forEach((step) => {
+                    const subs = pend[step.player] || [];
+                    const n = (seenPlayerStep[step.player] = (seenPlayerStep[step.player] || 0) + 1);
+                    const sub = subs[n - 1];
+                    if (!sub) return;
+                    applySingleAction(step._idx, sub.action, sub.category, step.player, sub.entryId, {
+                        // Phase-1 rule: duplicate bans are folded to a single
+                        // ban. Phase-2 rule: both players may secretly land on
+                        // the same faction — allow the shared pick.
+                        dedupe: true,
+                        allowSharedPick: true,
+                        allowSharedProtect: true
+                    });
+                });
+                state.step += group.steps.length;
+                delete hostPendingBlind[group.groupId];
+                state.blindProgress = null;
+                cleanupMyPendingBlind();
+                log(`Reveal: ${group.groupId}.`, "info");
+                if (state.step >= state.preset.sequence.length) {
+                    state.phase = "done";
+                    log("Draft complete.", "info");
                     return;
                 }
+                // Seed progress for the next group if it is itself blind.
+                const next = currentGroup();
+                if (next.blind) updateBlindProgress(next);
+            }
 
-                // availability check
+            function cleanupMyPendingBlind() {
+                const activeGid = state.blindProgress ? state.blindProgress.groupId : null;
+                Object.keys(myPendingBlind).forEach((gid) => {
+                    if (gid !== activeGid) delete myPendingBlind[gid];
+                });
+            }
+
+            // ------------------------------------------------------------
+            // Applying a single validated step to authoritative state.
+            //   opts.dedupe            — duplicate bans/protects fold silently
+            //   opts.allowSharedPick   — allow two players to pick the same entry
+            //   opts.allowSharedProtect — allow two players to protect the same entry
+            // Returns true on successful apply.
+            // ------------------------------------------------------------
+            function applySingleAction(stepIdx, action, category, playerIndex, entryId, opts) {
+                opts = opts || {};
                 const entry = lookupEntry(category, entryId);
-                if (!entry) return;
-                if (state.banned[category].includes(entryId)) return;
-                for (const pi in state.picks) {
-                    if (state.picks[pi][category] && state.picks[pi][category].includes(entryId)) return;
-                }
+                if (!entry) return false;
 
-                // apply
                 if (action === "ban") {
+                    if (state.protected[category].includes(entryId)) return false;
+                    if (state.banned[category].includes(entryId)) {
+                        if (opts.dedupe) {
+                            state.history.push({
+                                step: stepIdx, action, category, player: playerIndex,
+                                entryId, entryName: entry.name, duplicate: true
+                            });
+                            return true;
+                        }
+                        return false;
+                    }
                     state.banned[category].push(entryId);
                 } else if (action === "pick") {
+                    let pickedBySomeone = false;
+                    for (const pi in state.picks) {
+                        if (state.picks[pi][category] && state.picks[pi][category].includes(entryId)) {
+                            pickedBySomeone = true;
+                            break;
+                        }
+                    }
+                    if (pickedBySomeone && !opts.allowSharedPick) return false;
                     if (!state.picks[playerIndex]) state.picks[playerIndex] = { faction: [], society: [], ruler: [] };
+                    if (state.picks[playerIndex][category].includes(entryId)) return false;
                     state.picks[playerIndex][category].push(entryId);
+                } else if (action === "protect") {
+                    if (state.banned[category].includes(entryId)) return false;
+                    const alreadyGlobal = state.protected[category].includes(entryId);
+                    if (alreadyGlobal && !opts.allowSharedProtect) return false;
+                    if (!alreadyGlobal) state.protected[category].push(entryId);
+                    if (!state.protects[playerIndex]) state.protects[playerIndex] = { faction: [], society: [], ruler: [] };
+                    if (state.protects[playerIndex][category].includes(entryId)) return false;
+                    state.protects[playerIndex][category].push(entryId);
                 } else {
-                    return;
+                    return false;
                 }
 
                 state.history.push({
-                    step: state.step,
+                    step: stepIdx,
                     action,
                     category,
                     player: playerIndex,
                     entryId,
                     entryName: entry.name
                 });
-                state.step += 1;
+                return true;
+            }
 
-                if (state.step >= state.preset.sequence.length) {
-                    state.phase = "done";
-                    log("Draft complete.", "info");
+            function attemptAction(playerIndex, action, category, entryId) {
+                if (!isHost) return;
+                if (state.phase !== "draft") return;
+
+                const group = currentGroup();
+                if (!group.steps.length) return;
+
+                // --------- Non-blind (classic turn-based) path ---------
+                if (!group.blind) {
+                    const step = group.steps[0];
+                    if (step.player !== playerIndex) {
+                        log(`Rejected action from player ${playerIndex + 1}: not their turn.`, "bad");
+                        return;
+                    }
+                    if (step.action !== action || step.category !== category) {
+                        log(`Rejected action: expected ${step.action} ${step.category}.`, "bad");
+                        return;
+                    }
+                    const ok = applySingleAction(step._idx, action, category, playerIndex, entryId, {});
+                    if (!ok) {
+                        log(`Rejected action: entry unavailable.`, "bad");
+                        return;
+                    }
+                    state.step += 1;
+                    if (state.step >= state.preset.sequence.length) {
+                        state.phase = "done";
+                        log("Draft complete.", "info");
+                    } else {
+                        const next = currentGroup();
+                        if (next.blind) updateBlindProgress(next);
+                    }
+                    broadcastState();
+                    renderDraft();
+                    return;
                 }
 
+                // --------- Blind-group path ---------
+                const myStepsInGroup = group.steps.filter((s) => s.player === playerIndex);
+                if (myStepsInGroup.length === 0) {
+                    log(`Player ${playerIndex + 1} has no actions in this blind phase.`, "bad");
+                    return;
+                }
+                hostPendingBlind[group.groupId] = hostPendingBlind[group.groupId] || {};
+                const pend = hostPendingBlind[group.groupId];
+                const mySubs = (pend[playerIndex] = pend[playerIndex] || []);
+                if (mySubs.length >= myStepsInGroup.length) {
+                    log(`Player ${playerIndex + 1} already submitted all blind actions.`, "bad");
+                    return;
+                }
+                const nextStep = myStepsInGroup[mySubs.length];
+                if (nextStep.action !== action || nextStep.category !== category) {
+                    log(`Rejected blind action: expected ${nextStep.action} ${nextStep.category}.`, "bad");
+                    return;
+                }
+
+                const entry = lookupEntry(category, entryId);
+                if (!entry) return;
+                if (action === "ban" && state.protected[category].includes(entryId)) {
+                    notifyReject(playerIndex, `Cannot ban "${entry.name}" — it is protected.`);
+                    return;
+                }
+                if (state.banned[category].includes(entryId)) {
+                    notifyReject(playerIndex, `"${entry.name}" is banned.`);
+                    return;
+                }
+                if (mySubs.some((s) => s.entryId === entryId && s.category === category && s.action === action)) {
+                    notifyReject(playerIndex, `You already selected "${entry.name}" in this phase.`);
+                    return;
+                }
+
+                const submission = { stepIdx: nextStep._idx, action, category, entryId };
+                mySubs.push(submission);
+                updateBlindProgress(group);
+
+                // Tell the submitting player exactly what we recorded so their
+                // client can echo the tile as pending until reveal.
+                if (playerIndex === myPlayerIndex) {
+                    myPendingBlind[group.groupId] = myPendingBlind[group.groupId] || [];
+                    myPendingBlind[group.groupId].push(submission);
+                } else {
+                    const player = state.players.find((p) => p.index === playerIndex);
+                    if (player) {
+                        const conn = connections.get(player.peerId);
+                        if (conn) {
+                            try {
+                                conn.send({ type: "blindAck", groupId: group.groupId, submission });
+                            } catch (e) {}
+                        }
+                    }
+                }
+
+                const totalSubs = Object.values(pend).reduce((a, b) => a + b.length, 0);
+                if (totalSubs >= group.steps.length) {
+                    flushBlindGroup(group);
+                }
                 broadcastState();
                 renderDraft();
+            }
+
+            function notifyReject(playerIndex, message) {
+                log(`P${playerIndex + 1}: ${message}`, "bad");
+                if (playerIndex === myPlayerIndex) return;
+                const player = state.players.find((p) => p.index === playerIndex);
+                if (!player) return;
+                const conn = connections.get(player.peerId);
+                if (conn) {
+                    try { conn.send({ type: "error", message }); } catch (e) {}
+                }
             }
 
             // ============================================================
@@ -927,13 +1205,28 @@
                 const seq = state.preset.sequence || [];
                 const el = document.getElementById("sequencePreview");
                 el.innerHTML = "";
+                let lastGroup = "__none__";
                 seq.forEach((step, i) => {
+                    if (step.blind && step.blind !== lastGroup) {
+                        const banner = document.createElement("div");
+                        banner.className = "slot";
+                        banner.style.background = "#4b1d63";
+                        banner.style.color = "#fff";
+                        banner.innerHTML = `<strong>Blind phase: ${escapeHtml(step.blind)}</strong>`;
+                        el.appendChild(banner);
+                    }
+                    lastGroup = step.blind || "__none__";
+                    const cls =
+                        step.action === "ban" ? "slot-ban"
+                        : step.action === "protect" ? "slot-protected"
+                        : "slot-pick";
                     const div = document.createElement("div");
-                    div.className = "slot " + (step.action === "ban" ? "slot-ban" : "slot-pick");
+                    div.className = "slot " + cls;
                     div.innerHTML =
                         `<span style="min-width:24px;color:#999">#${i + 1}</span>` +
-                        `<span class="category-label">${step.action}</span>` +
-                        `<span>${DRAFT_CATEGORIES[step.category] ? DRAFT_CATEGORIES[step.category].label : step.category}</span>` +
+                        `<span class="category-label">${escapeHtml(step.action)}</span>` +
+                        (step.blind ? `<span class="category-label" style="background:#4b1d63;color:#fff">blind</span>` : "") +
+                        `<span>${DRAFT_CATEGORIES[step.category] ? DRAFT_CATEGORIES[step.category].label : escapeHtml(step.category)}</span>` +
                         `<span style="margin-left:auto;color:#ccc">P${step.player + 1}</span>`;
                     el.appendChild(div);
                 });
@@ -942,38 +1235,91 @@
             // ============================================================
             // Rendering — Draft board
             // ============================================================
+            function actionVerb(action) {
+                if (action === "ban") return "BAN";
+                if (action === "pick") return "PICK";
+                if (action === "protect") return "PROTECT";
+                return (action || "").toUpperCase();
+            }
+
+            function turnBannerClass(action) {
+                if (action === "ban") return "turn-ban";
+                if (action === "protect") return "turn-protect";
+                return "turn-pick";
+            }
+
             function renderDraft() {
                 const seq = state.preset.sequence || [];
-                const curStep = seq[state.step];
                 const turnEl = document.getElementById("turnBanner");
 
-                if (state.phase === "done" || !curStep) {
+                if (state.phase === "done" || state.step >= seq.length) {
                     turnEl.className = "turn-banner turn-wait";
                     turnEl.textContent = "Draft complete!";
                     renderPool(null);
-                } else {
-                    const myTurn = curStep.player === myPlayerIndex;
-                    const activePlayer = state.players.find((p) => p.index === curStep.player);
-                    const activeName = activePlayer ? activePlayer.name : `Player ${curStep.player + 1}`;
-                    const catLabel = DRAFT_CATEGORIES[curStep.category]
-                        ? DRAFT_CATEGORIES[curStep.category].label
-                        : curStep.category;
+                    renderDraftBoards();
+                    renderHistoryLog();
+                    return;
+                }
 
-                    if (myTurn) {
-                        turnEl.className = "turn-banner " + (curStep.action === "ban" ? "turn-ban" : "turn-pick");
-                        turnEl.textContent = `Your turn — ${curStep.action.toUpperCase()} a ${catLabel}`;
+                const group = currentGroup();
+
+                if (group.blind) {
+                    const myStepsInGroup = group.steps.filter((s) => s.player === myPlayerIndex);
+                    const myCount = (myPendingBlind[group.groupId] || []).length;
+                    const myRemaining = Math.max(0, myStepsInGroup.length - myCount);
+                    const firstMine = myStepsInGroup[0];
+                    const act = firstMine ? firstMine.action : "";
+                    const catLabel = firstMine
+                        ? (DRAFT_CATEGORIES[firstMine.category]
+                            ? DRAFT_CATEGORIES[firstMine.category].label
+                            : firstMine.category)
+                        : "";
+                    const progress = state.blindProgress ? state.blindProgress.counts : {};
+                    const summary = state.players
+                        .map((p) => {
+                            const c = progress[p.index] || 0;
+                            const t = group.steps.filter((s) => s.player === p.index).length;
+                            return `${escapeHtml(p.name || "P" + (p.index + 1))}: ${c}/${t}`;
+                        })
+                        .join(" · ");
+
+                    if (myRemaining > 0 && firstMine) {
+                        turnEl.className = "turn-banner turn-blind " + turnBannerClass(act);
+                        turnEl.innerHTML =
+                            `<div>BLIND PHASE — ${escapeHtml(group.groupId)}</div>` +
+                            `<div style="font-size:14px;margin-top:4px">Secretly ${actionVerb(act)} ${myRemaining} more ${escapeHtml(catLabel)}${myRemaining > 1 ? "s" : ""}</div>` +
+                            `<div style="font-size:12px;color:#c2c2c2;margin-top:4px">${summary}</div>`;
                     } else {
                         turnEl.className = "turn-banner turn-wait";
-                        turnEl.textContent = `${activeName} is choosing a ${catLabel} to ${curStep.action}...`;
+                        turnEl.innerHTML =
+                            `<div>BLIND PHASE — ${escapeHtml(group.groupId)}</div>` +
+                            `<div style="font-size:14px;margin-top:4px">Waiting for the other player to submit...</div>` +
+                            `<div style="font-size:12px;color:#c2c2c2;margin-top:4px">${summary}</div>`;
                     }
-                    renderPool(curStep);
+                    renderPool({ blind: true, group });
+                } else {
+                    const step = group.steps[0];
+                    const myTurn = step.player === myPlayerIndex;
+                    const activePlayer = state.players.find((p) => p.index === step.player);
+                    const activeName = activePlayer ? activePlayer.name : `Player ${step.player + 1}`;
+                    const catLabel = DRAFT_CATEGORIES[step.category]
+                        ? DRAFT_CATEGORIES[step.category].label
+                        : step.category;
+                    if (myTurn) {
+                        turnEl.className = "turn-banner " + turnBannerClass(step.action);
+                        turnEl.textContent = `Your turn — ${actionVerb(step.action)} a ${catLabel}`;
+                    } else {
+                        turnEl.className = "turn-banner turn-wait";
+                        turnEl.textContent = `${activeName} is choosing a ${catLabel} to ${step.action}...`;
+                    }
+                    renderPool({ blind: false, step });
                 }
 
                 renderDraftBoards();
                 renderHistoryLog();
             }
 
-            function renderPool(curStep) {
+            function renderPool(ctx) {
                 ["faction", "society", "ruler"].forEach((cat) => {
                     const wrap = document.getElementById("pool-" + cat);
                     if (!wrap) return;
@@ -983,6 +1329,7 @@
                         const tile = document.createElement("div");
                         tile.className = "pool-tile";
                         const banned = state.banned[cat].includes(entry.id);
+                        const isProtected = (state.protected[cat] || []).includes(entry.id);
                         let pickedBy = null;
                         for (const pi in state.picks) {
                             if (state.picks[pi][cat] && state.picks[pi][cat].includes(entry.id)) {
@@ -990,14 +1337,40 @@
                                 break;
                             }
                         }
-                        const unavailable = banned || pickedBy !== null;
 
-                        const isCurrent =
-                            curStep && curStep.category === cat && curStep.player === myPlayerIndex;
-                        const clickable = isCurrent && !unavailable;
+                        // Determine if this entry is currently clickable for me.
+                        let clickable = false;
+                        let action = null;
+                        let mySubs = [];
+                        if (ctx) {
+                            if (ctx.blind) {
+                                mySubs = myPendingBlind[ctx.group.groupId] || [];
+                                const myStepsInGroup = ctx.group.steps.filter((s) => s.player === myPlayerIndex);
+                                const nextStep = myStepsInGroup[mySubs.length];
+                                if (nextStep && nextStep.category === cat) {
+                                    action = nextStep.action;
+                                }
+                            } else if (ctx.step && ctx.step.category === cat && ctx.step.player === myPlayerIndex) {
+                                action = ctx.step.action;
+                            }
+                        }
+                        if (action === "ban") {
+                            clickable = !banned && pickedBy === null && !isProtected;
+                        } else if (action === "pick") {
+                            clickable = !banned && pickedBy === null;
+                        } else if (action === "protect") {
+                            clickable = !banned && pickedBy === null && !isProtected;
+                        }
+                        if (clickable && ctx && ctx.blind && mySubs.some((s) => s.entryId === entry.id && s.category === cat)) {
+                            clickable = false;
+                        }
+
+                        const isMyPending = !!(ctx && ctx.blind && (myPendingBlind[ctx.group.groupId] || []).some((s) => s.entryId === entry.id && s.category === cat));
 
                         if (banned) tile.classList.add("banned");
                         if (pickedBy !== null) tile.classList.add("picked");
+                        if (isProtected) tile.classList.add("protected");
+                        if (isMyPending) tile.classList.add("pending");
                         if (!clickable) tile.classList.add("disabled");
 
                         const img = document.createElement("img");
@@ -1010,17 +1383,29 @@
 
                         const span = document.createElement("span");
                         let suffix = "";
-                        if (banned) suffix = " (banned)";
-                        else if (pickedBy !== null) {
+                        if (banned) {
+                            suffix = " (banned)";
+                        } else if (pickedBy !== null) {
                             const byName = (state.players.find((p) => p.index === pickedBy) || {}).name;
                             suffix = ` (P${pickedBy + 1}${byName ? ": " + byName : ""})`;
+                        } else if (isProtected) {
+                            const protectors = [];
+                            for (const pi in state.protects || {}) {
+                                if (state.protects[pi][cat] && state.protects[pi][cat].includes(entry.id)) {
+                                    protectors.push(parseInt(pi, 10));
+                                }
+                            }
+                            suffix = protectors.length
+                                ? ` (protected by ${protectors.map((i) => "P" + (i + 1)).join(", ")})`
+                                : " (protected)";
                         }
+                        if (isMyPending) suffix += " [pending reveal]";
                         span.textContent = (entry.name || entry.id) + suffix;
                         tile.appendChild(span);
 
                         if (clickable) {
                             tile.addEventListener("click", () => {
-                                playerSendAction(curStep.action, cat, entry.id);
+                                playerSendAction(action, cat, entry.id);
                             });
                         }
                         wrap.appendChild(tile);
@@ -1034,22 +1419,36 @@
                 state.players.forEach((p) => {
                     const board = document.createElement("div");
                     board.className = "draft-board";
-                    board.innerHTML = `<h3>${escapeHtml(p.name)}${
+                    const playerLabel = p.index === 0 ? "Player A" : p.index === 1 ? "Player B" : `Player ${p.index + 1}`;
+                    board.innerHTML = `<h3>${escapeHtml(playerLabel)} — ${escapeHtml(p.name)}${
                         p.index === myPlayerIndex ? " (you)" : ""
                     }</h3>`;
 
                     ["ruler", "faction", "society"].forEach((cat) => {
                         const picks = (state.picks[p.index] && state.picks[p.index][cat]) || [];
+                        const prots = (state.protects[p.index] && state.protects[p.index][cat]) || [];
                         const row = document.createElement("div");
                         row.innerHTML =
                             `<div style="font-family:Decorative;color:burlywood;font-size:13px;margin-top:4px">${DRAFT_CATEGORIES[cat].plural}</div>`;
-                        if (picks.length === 0) {
+                        prots.forEach((id) => {
+                            const entry = lookupEntry(cat, id);
+                            if (!entry) return;
+                            const alsoPicked = picks.includes(id);
+                            const slot = document.createElement("div");
+                            slot.className = "slot slot-protected";
+                            slot.innerHTML =
+                                `<img src="${iconUrlFor(cat, entry)}" onerror="this.style.display='none'"/>` +
+                                `<span>${escapeHtml(entry.name || entry.id)} (protected${alsoPicked ? " · picked" : ""})</span>`;
+                            row.appendChild(slot);
+                        });
+                        if (picks.length === 0 && prots.length === 0) {
                             const slot = document.createElement("div");
                             slot.className = "slot slot-empty";
                             slot.textContent = "—";
                             row.appendChild(slot);
                         } else {
                             picks.forEach((id) => {
+                                if (prots.includes(id)) return; // already rendered above
                                 const entry = lookupEntry(cat, id);
                                 if (!entry) return;
                                 const slot = document.createElement("div");
@@ -1101,7 +1500,11 @@
                     line.className = "log-line log-" + h.action;
                     const pl = state.players.find((p) => p.index === h.player);
                     const plName = pl ? pl.name : `Player ${h.player + 1}`;
-                    line.textContent = `#${h.step + 1} ${plName} ${h.action === "ban" ? "BANNED" : "PICKED"} ${h.entryName} [${h.category}]`;
+                    const verb =
+                        h.action === "ban" ? (h.duplicate ? "DUPLICATE-BANNED" : "BANNED")
+                        : h.action === "protect" ? "PROTECTED"
+                        : "PICKED";
+                    line.textContent = `#${h.step + 1} ${plName} ${verb} ${h.entryName} [${h.category}]`;
                     box.appendChild(line);
                 });
                 box.scrollTop = box.scrollHeight;
@@ -1204,6 +1607,8 @@
                 <div class="draft-help">
                     Draft factions, society traits, and ruler types with your friends before a match.
                     Create a lobby to host, or open a share link to join an existing one.
+                    The default <strong>1v1 Tournament</strong> preset randomizes Player A/B at draft start
+                    and uses blind phases for faction bans/picks and trait protections.
                 </div>
 
                 <div class="row">
@@ -1307,9 +1712,15 @@
                             Paste a preset JSON below or load one from a file.
                             Supported fields:
                             <code>name</code>, <code>players</code>,
+                            optional <code>randomizeOrder</code> (shuffle Player A/B at start),
                             <code>sequence[]</code> with <code>action</code>
-                            (ban|pick), <code>category</code> (faction|society|ruler),
-                            and optional <code>player</code> (0-based index).
+                            (<code>ban</code> | <code>pick</code> | <code>protect</code>),
+                            <code>category</code> (<code>faction</code> | <code>society</code> | <code>ruler</code>),
+                            optional <code>player</code> (0-based index), and optional
+                            <code>blind</code> — consecutive steps sharing the same
+                            <code>blind</code> id are gathered simultaneously and revealed
+                            together (duplicate bans fold to one, both players may share a
+                            faction pick, protected entries cannot be banned).
                         </div>
                         <div class="row">
                             <input type="file" accept="application/json,.json" onchange="onLoadPresetFile(event)" />
